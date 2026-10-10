@@ -1,0 +1,29 @@
+name: AutoZvuk
+options:
+  bundleIdPrefix: ru.istorpskov
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  AutoZvuk:
+    type: application
+    platform: iOS
+    sources:
+      - path: app
+    scheme: {}
+    info:
+      path: app/Info.plist
+      properties:
+        CFBundleDisplayName: Автозвук
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSMicrophoneUsageDescription: Чтобы слушать, как играет аудиосистема
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.istorpskov.autozvuk
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"

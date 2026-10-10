@@ -1,0 +1,46 @@
+name: Сборка приложения
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "project.yml"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Подготовить проект
+        run: |
+          brew install xcodegen
+          cp index.html app/polarity.html
+          xcodegen generate
+
+      - name: Собрать
+        run: |
+          xcodebuild -project AutoZvuk.xcodeproj -scheme AutoZvuk \
+            -configuration Release -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+      - name: Упаковать .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/AutoZvuk.app Payload/
+          zip -qr AutoZvuk.ipa Payload
+
+      - name: Выложить в релиз «latest»
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest AutoZvuk.ipa \
+            --title "Автозвук, сборка ${{ github.run_number }}" \
+            --notes "Собрано автоматически из коммита ${{ github.sha }}"

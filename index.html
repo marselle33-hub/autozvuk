@@ -1,0 +1,2141 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Проверка автозвука</title>
+<style>
+:root{
+  --bg:#EEF3F4; --panel:#FFFFFF; --line:#D3DEE1; --text:#10272E; --muted:#557079;
+  --accent:#B86E00; --accent-ink:#FFFFFF; --ok:#1F8F5C; --bad:#C9363B; --warn:#9A6200; --track:#DCE6E8;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F252C; --panel:#163640; --line:#24505C; --text:#E6F0F2; --muted:#8FB0B8;
+    --accent:#FFB547; --accent-ink:#1A1300; --ok:#5BD69B; --bad:#FF7A7A; --warn:#FFC766; --track:#1F4652;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F252C; --panel:#163640; --line:#24505C; --text:#E6F0F2; --muted:#8FB0B8;
+  --accent:#FFB547; --accent-ink:#1A1300; --ok:#5BD69B; --bad:#FF7A7A; --warn:#FFC766; --track:#1F4652;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-text-size-adjust:100%}
+main{max-width:620px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:30px;line-height:1.1;margin:10px 0 8px;letter-spacing:-0.015em}
+h2{font-size:19px;line-height:1.25;margin:0 0 8px}
+p{margin:0 0 10px}
+.lead{color:var(--muted);margin-bottom:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin:14px 0}
+.hint{color:var(--muted);font-size:14px}
+ol.steps{margin:6px 0 12px;padding-left:20px}
+ol.steps li{margin:4px 0}
+.btn{appearance:none;-webkit-appearance:none;border:0;border-radius:12px;padding:14px 18px;
+  font:600 16px/1.2 inherit;font-family:inherit;background:var(--accent);color:var(--accent-ink);
+  width:100%;cursor:pointer;touch-action:manipulation}
+.btn.secondary{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.seg button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.seg{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:16px 0 4px}
+.seg button{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--text);
+  border-radius:12px;padding:12px 8px;font:600 15px/1.2 inherit;font-family:inherit;cursor:pointer}
+.seg button.wide{grid-column:1/-1}
+.seg button[aria-selected="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+select,input[type=text]{width:100%;font:16px/1.3 inherit;font-family:inherit;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+.meter{height:10px;border-radius:5px;background:var(--track);overflow:hidden;margin:10px 0 4px}
+.meter>i{display:block;height:100%;width:0;background:var(--accent);transition:width .08s linear}
+.status{font-size:14px;margin-top:8px}
+.status.ok{color:var(--ok)} .status.bad{color:var(--bad)}
+.progress{height:4px;border-radius:2px;background:var(--track);overflow:hidden;margin-top:12px;display:none}
+.progress.on{display:block}
+.progress>i{display:block;height:100%;width:0;background:var(--accent)}
+.verdict{display:flex;gap:16px;align-items:center;margin-top:14px}
+.sign{flex:0 0 auto;width:88px;height:88px;border-radius:50%;border:4px solid currentColor;
+  display:grid;place-items:center;font-size:60px;font-weight:700;line-height:1}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)} .verdict.warn{color:var(--warn)}
+.verdict .txt{color:var(--text)}
+.verdict .txt b{display:block;font-size:19px;line-height:1.25;margin-bottom:4px}
+.verdict.ok .txt b{color:var(--ok)} .verdict.bad .txt b{color:var(--bad)} .verdict.warn .txt b{color:var(--warn)}
+.table-wrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+td.num{font-variant-numeric:tabular-nums}
+.good{color:var(--ok);font-weight:600}.badc{color:var(--bad);font-weight:600}
+.freq{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;margin:6px 0}
+.chart{margin-top:14px}
+.chart svg{width:100%;height:auto;display:block}
+.legend{list-style:none;padding:0;margin:10px 0 0}
+.legend li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+.legend input{width:20px;height:20px;margin:0}
+.legend .sw{width:18px;height:4px;border-radius:2px;flex:0 0 auto}
+.legend .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini{appearance:none;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:8px;padding:6px 10px;font:500 14px/1.2 inherit;font-family:inherit;cursor:pointer}
+.tips{margin:14px 0 0;padding-left:20px}
+.tips li{margin:6px 0}
+.step{font-size:20px;line-height:1.35;font-weight:600;margin:6px 0 14px}
+.stepno{color:var(--muted);font-size:14px}
+.checks{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:4px}
+.checks label{display:flex;align-items:center;gap:8px;margin:0;color:var(--text);font-size:16px}
+.checks input{width:20px;height:20px;margin:0}
+.recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:14px}
+.rec{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
+.rec span{display:block;color:var(--muted);font-size:13px}
+.rec b{display:block;font-size:26px;font-variant-numeric:tabular-nums;line-height:1.2}
+.gen-f{font-size:64px;font-weight:700;line-height:1;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;text-align:center;margin:8px 0 2px}
+.gen-f small{font-size:24px;font-weight:600;color:var(--muted);margin-left:6px}
+.steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 8px}
+.steps4 button{font-size:18px;padding:16px 4px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:6px 0}
+.live{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.live .rec b{font-size:22px}
+.livebar{height:8px;border-radius:4px;background:var(--track);overflow:hidden;margin-top:6px}
+.livebar>i{display:block;height:100%;width:0;background:var(--ok)}
+.note{font-size:14px;margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.glabel{font-size:13px;color:var(--muted);margin:18px 0 6px}
+.nav .seg{margin:0}
+label.check{display:flex;align-items:center;gap:10px;color:var(--text);font-size:16px;margin:12px 0 6px}
+label.check input{width:22px;height:22px;margin:0;accent-color:var(--accent)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.filebtn{display:block;text-align:center;margin-top:8px}
+.score{display:flex;gap:16px;align-items:center;margin-top:8px}
+.score .big{font-size:64px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:96px;text-align:center}
+.replist{list-style:none;padding:0;margin:14px 0 0}
+.replist li{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rs{flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:2px solid;display:grid;place-items:center;font-weight:700;font-size:15px}
+.rb{flex:1;min-width:0}
+.rt{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.rt b{text-align:right}
+.rb p{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.rb small{color:var(--muted);font-size:12px}
+.bar{height:10px;border-radius:5px;background:var(--accent);min-width:2px}
+.legend .dsw{width:22px;height:0;border-top:3px dashed;flex:0 0 auto}
+.mseg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0 10px}
+.mseg button{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:12px;padding:12px 8px;font:600 15px/1.2 inherit;font-family:inherit;cursor:pointer}
+.mseg button[aria-selected="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.mseg button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+details.more{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+details.more summary{cursor:pointer;color:var(--muted);font-size:15px;padding:4px 0}
+.tracks{list-style:none;padding:0;margin:12px 0 0}
+.tracks li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.tracks .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){.meter>i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Проверка автозвука</h1>
+  <p class="lead">Телефон играет тестовые сигналы через магнитолу, слушает их микрофоном и подсказывает, что подключено неправильно и что подкрутить.</p>
+
+  <section class="panel" aria-labelledby="setup-h">
+    <h2 id="setup-h">Подготовка</h2>
+    <ol class="steps">
+      <li>Подключите телефон к магнитоле проводом AUX. Bluetooth не подойдёт: с включённым микрофоном iPhone переводит Bluetooth в режим звонка.</li>
+      <li>Отключите на магнитоле эквалайзер, тонкомпенсацию и «улучшайзеры». Баланс и фейдер в центр, если тест не просит иного.</li>
+      <li>Громкость средняя, вентилятор печки выключен, окна закрыты.</li>
+    </ol>
+    <label class="check"><input type="checkbox" id="engine" checked> Двигатель заведён</label>
+    <p class="hint" style="margin-top:0">Обычно музыку слушают на заведённой машине, так замеры ближе к жизни. С галочкой свипы идут дольше, чтобы шум мотора не мешал. Каждый результат запоминает, с каким двигателем он сделан.</p>
+    <button class="btn" id="micBtn">Включить микрофон</button>
+    <div class="meter" aria-hidden="true"><i id="meterBar"></i></div>
+    <div class="status" id="micStatus">Микрофон выключен. Сначала включите его.</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn secondary" id="beepBtn">Проверить, откуда звук</button>
+      <button class="btn secondary" id="micOff" disabled>Выключить микрофон</button>
+    </div>
+    <details class="more" id="routeBox">
+      <summary>Звук идёт из телефона, а не через AUX?</summary>
+      <p class="hint">Это известная ошибка Safari на iPhone: когда страница включает микрофон, Safari может увести звук на динамик телефона, даже если провод AUX подключён. Есть три способа её обойти — пробуйте по очереди. После выбора страница перезагрузится: снова включите микрофон и нажмите «Проверить, откуда звук».</p>
+      <label for="routeMode">Способ обхода</label>
+      <select id="routeMode">
+        <option value="a">Способ 1</option>
+        <option value="b">Способ 2</option>
+        <option value="c">Способ 3</option>
+        <option value="off">Без обхода</option>
+      </select>
+      <p class="hint" id="routeInfo" style="margin-top:8px"></p>
+      <p class="hint">Для простого прослушивания мелодии микрофон не нужен: нажмите «Выключить микрофон», и звук вернётся на AUX.</p>
+      <button class="btn secondary" id="routeFix" style="margin-top:6px">Вернуть звук на AUX</button>
+      <div id="sinkBox" hidden>
+        <label for="sinkSel">Куда выводить звук</label>
+        <select id="sinkSel"></select>
+        <p class="hint" style="margin-top:6px">Выберите провод AUX — обычно он называется не «Динамик» и не «Приёмник».</p>
+      </div>
+      <h2 style="margin-top:18px;font-size:17px">Журнал для диагностики</h2>
+      <p class="hint">После каждой проверки писка отметьте, откуда он прозвучал. Потом скопируйте журнал и пришлите его в чат.</p>
+      <div class="row">
+        <button class="btn secondary" id="ansCar">Писк из машины</button>
+        <button class="btn secondary" id="ansPhone">Писк из телефона</button>
+      </div>
+      <pre id="diagLog" style="white-space:pre-wrap;font-size:12px;line-height:1.4;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:260px;overflow:auto;margin:10px 0"></pre>
+      <div class="row">
+        <button class="btn secondary" id="diagCopy">Скопировать журнал</button>
+        <button class="btn secondary" id="diagClear">Очистить журнал</button>
+      </div>
+    </details>
+  </section>
+
+  <nav class="nav" aria-label="Разделы">
+    <p class="glabel">Итог и настройка</p>
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="false" data-tab="report">Общий отчёт</button>
+      <button role="tab" aria-selected="false" data-tab="wiz">Настройка магнитолы</button>
+    </div>
+    <p class="glabel">Подключение</p>
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="lr">Левый и правый</button>
+      <button role="tab" aria-selected="false" data-tab="sub">Саб и фронт</button>
+      <button role="tab" aria-selected="false" data-tab="one">Один динамик</button>
+      <button role="tab" aria-selected="false" data-tab="spk4">Все 4 динамика</button>
+    </div>
+    <p class="glabel">Звучание</p>
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="false" data-tab="fr">АЧХ и эталоны</button>
+      <button role="tab" aria-selected="false" data-tab="music">Музыка</button>
+      <button role="tab" aria-selected="false" data-tab="dist">Перегруз и дребезг</button>
+      <button role="tab" aria-selected="false" data-tab="gen">Генератор</button>
+      <button role="tab" aria-selected="false" data-tab="listen" class="wide">Прослушать</button>
+    </div>
+    <p class="glabel">Салон</p>
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="false" data-tab="decay">Гулкость салона</button>
+      <button role="tab" aria-selected="false" data-tab="delay">Задержка Л/П</button>
+      <button role="tab" aria-selected="false" data-tab="noise">Шум и наводки</button>
+      <button role="tab" aria-selected="false" data-tab="iso">Шумоизоляция</button>
+    </div>
+  </nav>
+
+  <!-- Мастер настройки -->
+  <section class="panel" data-pane="wiz" hidden>
+    <h2>Настройка магнитолы под вашу музыку</h2>
+    <p class="hint">Мастер по шагам просит покрутить регуляторы магнитолы и после каждого шага делает короткий замер. Так он узнаёт, как именно ваша магнитола и динамики реагируют на Bass, Middle и Treble, а в конце подбирает значения под выбранный стиль музыки.</p>
+    <p class="hint">Телефон всё время лежит на месте водителя на уровне головы и не двигается. Громкость одна и та же на всех шагах. Займёт около трёх минут.</p>
+    <label>Какие регуляторы тембра есть на магнитоле</label>
+    <div class="checks">
+      <label><input type="checkbox" class="wizCtl" value="bass" checked> Bass</label>
+      <label><input type="checkbox" class="wizCtl" value="mid" checked> Middle</label>
+      <label><input type="checkbox" class="wizCtl" value="treble" checked> Treble</label>
+    </div>
+    <label for="wizMax">Максимум регулятора (например, от −7 до +7)</label>
+    <select id="wizMax">
+      <option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option><option>12</option>
+    </select>
+    <label for="wizGenre">Какую музыку слушаете</label>
+    <select id="wizGenre"></select>
+    <div style="height:12px"></div>
+    <button class="btn" id="wizStart" disabled>Начать настройку</button>
+    <div id="wizBox"></div>
+    <div class="progress" id="wizProg"><i></i></div>
+    <div id="wizOut"></div>
+  </section>
+
+  <section class="panel" data-pane="wiz" hidden>
+    <h2>Предел громкости магнитолы</h2>
+    <p class="hint">Ищем громкость, после которой усилитель магнитолы начинает искажать. Выше неё музыка уже не становится громче, только грязнее, а динамики греются.</p>
+    <ol class="steps">
+      <li>Bass, Middle, Treble в 0, Loud выключен. Громкость на телефоне — на максимум.</li>
+      <li>Телефон положите на заднее сиденье, чтобы не перегрузился микрофон.</li>
+      <li>Начните примерно с половины громкости, после каждого замера прибавляйте на 2–3 деления.</li>
+    </ol>
+    <p class="note">Будет громко. На последних шагах закройте уши — замер длится около трёх секунд.</p>
+    <label for="mvVol">Громкость на магнитоле сейчас</label>
+    <input type="text" id="mvVol" inputmode="decimal" value="20" autocomplete="off">
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="mvBtn" disabled>Замерить</button>
+      <button class="btn secondary" id="mvClear">Очистить</button>
+    </div>
+    <div class="progress" id="mvProg"><i></i></div>
+    <div id="mvOut"></div>
+  </section>
+
+  <!-- Левый и правый -->
+  <section class="panel" data-pane="lr">
+    <h2>Левый и правый в фазе?</h2>
+    <p class="hint">Самый надёжный тест. Приложение играет басовый тон в оба канала, потом переворачивает правый канал. Если динамики подключены одинаково, обычный вариант звучит громче.</p>
+    <ol class="steps">
+      <li>Сабвуфер выключите, иначе он исказит результат.</li>
+      <li>Фейдер на передние динамики, чтобы проверить фронт. Потом повторите с фейдером назад.</li>
+      <li>Положите телефон ровно посередине между динамиками, например на подлокотник, микрофоном вверх.</li>
+    </ol>
+    <button class="btn" id="lrBtn" disabled>Проверить пару</button>
+    <div class="progress" id="lrProg"><i></i></div>
+    <div id="lrOut"></div>
+  </section>
+
+  <!-- Саб и фронт -->
+  <section class="panel" data-pane="sub" hidden>
+    <h2>Сабвуфер в фазе с фронтом?</h2>
+    <p class="hint">Сделайте замер, переверните фазу саба (переключатель 0/180° на сабе или поменяйте провода), сделайте второй замер. Правильная настройка та, где бас громче.</p>
+    <ol class="steps">
+      <li>Саб и фронт включены, фейдер в центре.</li>
+      <li>Телефон на месте водителя, примерно на уровне головы.</li>
+      <li>Между замерами не трогайте громкость и не двигайте телефон.</li>
+    </ol>
+    <p class="hint">Если на сабе крутилка фазы 0–180°, сделайте замеры в нескольких положениях, например 0, 45, 90, 135 и 180°. Лучшее положение подсветится. Штатная магнитола задержку не настраивает, так что крутилка фазы — главный способ согласовать саб с дверями.</p>
+    <label for="subLabel">Название замера</label>
+    <input type="text" id="subLabel" value="Фаза 0°" autocomplete="off">
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="subBtn" disabled>Сделать замер</button>
+      <button class="btn secondary" id="subClear">Очистить</button>
+    </div>
+    <div class="progress" id="subProg"><i></i></div>
+    <div id="subOut"></div>
+  </section>
+
+  <!-- Один динамик -->
+  <section class="panel" data-pane="one" hidden>
+    <h2>Проверка одного динамика</h2>
+    <p class="hint">Приложение играет короткие щелчки и смотрит, куда сначала дёрнулся диффузор. Микрофоны у телефонов разные, поэтому сравнивайте динамики между собой: у всех должен быть одинаковый знак. Для саба надёжнее тест «Саб и фронт».</p>
+    <label for="drv">Какой динамик</label>
+    <select id="drv">
+      <option value="midbass">Мидбас в двери</option>
+      <option value="mid">Среднечастотник</option>
+      <option value="tw">Пищалка</option>
+      <option value="sub">Сабвуфер</option>
+    </select>
+    <label for="ch">Канал</label>
+    <select id="ch">
+      <option value="L">Левый</option>
+      <option value="R">Правый</option>
+      <option value="B">Оба</option>
+    </select>
+    <label for="oneLabel">Подпись</label>
+    <input type="text" id="oneLabel" value="Левая дверь" autocomplete="off">
+    <p class="hint" style="margin-top:10px">Поднесите телефон микрофоном к динамику на 10–30 см.</p>
+    <div class="row">
+      <button class="btn" id="oneBtn" disabled>Проверить динамик</button>
+      <button class="btn secondary" id="oneClear">Очистить</button>
+    </div>
+    <div class="progress" id="oneProg"><i></i></div>
+    <div id="oneOut"></div>
+    <div id="oneCal"></div>
+  </section>
+
+  <!-- АЧХ -->
+  <section class="panel" data-pane="fr" hidden>
+    <h2>АЧХ: как система играет по частотам</h2>
+    <p class="hint">Телефон играет свип от 20 Гц до 20 кГц и строит график. Пунктиром показаны два эталона: студийный (ровная линия) и Harman для машины — упрощённая кривая из исследований того, какой звук в машине нравится большинству людей. Микрофон iPhone плохо слышит самый низ, поэтому ниже 40 Гц график занижен, а оценка считается от 50 Гц.</p>
+    <ol class="steps">
+      <li>Телефон на месте водителя, на уровне головы, микрофоном вперёд.</li>
+      <li>Саб и все динамики включены как обычно.</li>
+    </ol>
+    <label for="frCh">Каналы</label>
+    <select id="frCh">
+      <option value="B">Оба</option>
+      <option value="L">Левый</option>
+      <option value="R">Правый</option>
+    </select>
+    <label for="frLabel">Название замера</label>
+    <input type="text" id="frLabel" value="Замер 1" autocomplete="off">
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="frBtn" disabled>Снять АЧХ</button>
+      <button class="btn secondary" id="frClear">Очистить</button>
+    </div>
+    <div class="progress" id="frProg"><i></i></div>
+    <div class="chart" id="frChart"></div>
+    <ul class="legend" id="frLegend"></ul>
+    <div id="frScore"></div>
+    <div id="frTips"></div>
+  </section>
+
+  <!-- Перегруз и дребезг -->
+  <section class="panel" data-pane="dist" hidden>
+    <h2>Перегруз саба</h2>
+    <p class="hint">Приложение играет басовые тоны и считает искажения: сколько энергии уходит в гармоники. Начните со средней громкости и повторяйте, прибавляя. Так найдёте громкость, на которой саб начинает хрипеть.</p>
+    <p class="hint">Телефон на месте водителя. Если он лежит вплотную к сабу, может перегрузиться сам микрофон.</p>
+    <button class="btn" id="distBtn" disabled>Проверить перегруз</button>
+    <div class="progress" id="distProg"><i></i></div>
+    <div id="distOut"></div>
+  </section>
+
+  <section class="panel" data-pane="dist" hidden>
+    <h2>Поиск дребезга</h2>
+    <p class="hint">Свип 20–200 Гц, 20 секунд. Когда что-то дребезжит, появляется звон на высоких частотах. Приложение найдёт, на каких частотах это было. Потом включите свип во вкладке «Прослушать», дойдите до этой частоты и ищите на слух, что звенит.</p>
+    <label for="ratCh">Каналы</label>
+    <select id="ratCh">
+      <option value="B">Оба</option>
+      <option value="L">Левый</option>
+      <option value="R">Правый</option>
+    </select>
+    <div style="height:12px"></div>
+    <button class="btn" id="ratBtn" disabled>Найти дребезг</button>
+    <div class="progress" id="ratProg"><i></i></div>
+    <div id="ratOut"></div>
+  </section>
+
+  <!-- Генератор -->
+  <section class="panel" data-pane="gen" hidden>
+    <h2>Генератор частоты</h2>
+    <p class="hint">Играет чистый тон, частоту меняете кнопками. Если включён микрофон, внизу в реальном времени видно громкость, искажения и звон. Кнопки можно зажимать — частота будет меняться непрерывно.</p>
+    <div class="gen-f" aria-live="polite"><span id="genF">50</span><small>Гц</small></div>
+    <input type="range" id="genSlider" min="0" max="1000" value="0" aria-label="Частота">
+    <div class="steps4">
+      <button class="btn secondary" data-df="-10">−10</button>
+      <button class="btn secondary" data-df="-1">−1</button>
+      <button class="btn secondary" data-df="1">+1</button>
+      <button class="btn secondary" data-df="10">+10</button>
+    </div>
+    <div class="chips" id="genChips"></div>
+    <label for="genVol">Громкость генератора: <span id="genVolTxt">40%</span></label>
+    <input type="range" id="genVol" min="0" max="100" value="40">
+    <div class="row">
+      <div><label for="genCh">Канал</label>
+        <select id="genCh"><option value="0">Оба</option><option value="-1">Левый</option><option value="1">Правый</option></select></div>
+      <div><label for="genWave">Форма</label>
+        <select id="genWave"><option value="sine">Синус</option><option value="pulse">Импульсы</option></select></div>
+    </div>
+    <div style="height:12px"></div>
+    <button class="btn" id="genBtn">Включить тон</button>
+    <div class="live">
+      <div class="rec"><span>Громкость</span><b id="lvLevel">—</b></div>
+      <div class="rec"><span>Искажения</span><b id="lvThd">—</b><div class="livebar"><i id="lvThdBar"></i></div></div>
+      <div class="rec"><span>Звон</span><b id="lvRat">—</b></div>
+    </div>
+    <p class="status" id="lvStatus">Включите микрофон в разделе «Подготовка», чтобы видеть анализ.</p>
+  </section>
+
+  <!-- Общий отчёт -->
+  <section class="panel" data-pane="report" hidden>
+    <h2>Общий отчёт</h2>
+    <p class="hint">Сюда сам попадает последний результат каждой проверки. Пройдите тесты по очереди — отчёт соберётся и покажет общую оценку системы.</p>
+    <div id="repOut"></div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn secondary" id="repCopy">Скопировать текстом</button>
+      <button class="btn secondary" id="repClear">Очистить отчёт</button>
+    </div>
+  </section>
+
+  <!-- 4 динамика -->
+  <section class="panel" data-pane="spk4" hidden>
+    <h2>Проверка всех динамиков</h2>
+    <p class="hint">Телефон по очереди играет в левый и правый канал, а вы переключаете фейдер вперёд и назад. Для каждого динамика видно, играет ли он, работает ли пищалка и мидбас, и не тише ли он соседа.</p>
+    <ol class="steps">
+      <li>Саб на время проверки выключите или уберите его гейн в ноль — иначе он заглушит низ.</li>
+      <li>Телефон в центре салона, например на подлокотнике, микрофоном вверх.</li>
+    </ol>
+    <label class="check"><input type="checkbox" id="spkRear" checked> Есть задние динамики</label>
+    <button class="btn" id="spkStart" disabled>Начать проверку</button>
+    <div id="spkBox"></div>
+    <div class="progress" id="spkProg"><i></i></div>
+    <div id="spkOut"></div>
+  </section>
+
+  <!-- Музыка -->
+  <section class="panel" data-pane="music" hidden>
+    <h2>Сравнение на музыке</h2>
+    <div class="mseg" role="tablist" aria-label="Режим сравнения">
+      <button role="tab" data-mm="any" aria-selected="true">Любая музыка</button>
+      <button role="tab" data-mm="exact" aria-selected="false">Точное сравнение</button>
+    </div>
+
+    <div id="mmAny">
+      <p class="hint">Включите любую музыку — ВК или Яндекс Музыку со второго телефона по Bluetooth, радио, флешку — а этот телефон просто послушает. Оригинала у страницы нет, поэтому она сравнивает с типичным спектром музыки: он похож на розовый шум с небольшим спадом на верхах.</p>
+      <p class="hint">По одному треку результат грубый: у каждой песни свой баланс. По 3–5 разным трекам особенности песен усредняются, и картина получается хорошая.</p>
+      <p class="note">С этого же айфона музыку играть не получится: когда страница включает микрофон, iOS обычно ставит другие приложения на паузу. Слушайте погромче, чтобы шум мотора не мешал.</p>
+      <label for="aName">Что играет (можно не писать)</label>
+      <input type="text" id="aName" placeholder="Название трека" autocomplete="off">
+      <label for="aLen">Сколько слушать</label>
+      <select id="aLen"><option value="20">20 секунд</option><option value="30" selected>30 секунд</option></select>
+      <div style="height:12px"></div>
+      <div class="row">
+        <button class="btn" id="aRun" disabled>Слушать</button>
+        <button class="btn secondary" id="aClear">Очистить</button>
+      </div>
+      <div class="progress" id="aProg"><i></i></div>
+      <div class="chart" id="aChart"></div>
+      <ul class="legend" id="aLegend"></ul>
+      <div id="aOut"></div>
+    </div>
+
+    <div id="mmExact" hidden>
+      <p class="hint">Страница сама играет встроенный трек — мелодию с плотным басом и тихим шумом на всех частотах. Оригинал известен точно, поэтому видно, что именно система добавляет и что теряет. Около 22 секунд.</p>
+      <p class="hint">Телефон на месте водителя, на уровне головы.</p>
+      <button class="btn" id="rRun" disabled>Сыграть встроенный трек</button>
+      <div class="progress" id="rProg"><i></i></div>
+      <details class="more">
+        <summary>У меня есть файл с музыкой</summary>
+        <p class="hint">Например, сохранённый из Telegram. Страница оценит сам файл — качество сжатия, пережатость, клиппинг — и сравнит звук в машине с ним.</p>
+        <label class="btn secondary filebtn">Выбрать файл<input type="file" id="mFile" accept="audio/*" class="vh"></label>
+        <div id="mInfo"></div>
+        <div id="mCtl" hidden>
+          <label for="mStart">Начало фрагмента: <span id="mStartTxt">0:00</span></label>
+          <input type="range" id="mStart" min="0" max="0" value="0" step="1">
+          <label for="mLen">Длина фрагмента</label>
+          <select id="mLen"><option value="15">15 секунд</option><option value="30" selected>30 секунд</option></select>
+          <p class="hint" style="margin-top:10px">Выберите кусок, где играют все инструменты, без тихого вступления.</p>
+          <div class="row">
+            <button class="btn secondary" id="mPreview">Прослушать фрагмент</button>
+            <button class="btn" id="mRun" disabled>Сыграть и сравнить</button>
+          </div>
+        </div>
+        <div class="progress" id="mProg"><i></i></div>
+      </details>
+      <div class="chart" id="mChart"></div>
+      <ul class="legend" id="mLegend"></ul>
+      <div id="mOut"></div>
+    </div>
+  </section>
+
+  <!-- Гулкость -->
+  <section class="panel" data-pane="decay" hidden>
+    <h2>Гулкость салона</h2>
+    <p class="hint">Телефон играет свип и считает, как быстро звук затухает после того, как сигнал стих, отдельно на каждой частоте. Если бас затухает намного дольше середины, салон «бубнит». В машине обычно 50–150 мс.</p>
+    <p class="hint">Телефон на месте водителя, на уровне головы. Саб и все динамики включены как обычно.</p>
+    <button class="btn" id="decayBtn" disabled>Измерить гулкость</button>
+    <div class="progress" id="decayProg"><i></i></div>
+    <div id="decayOut"></div>
+  </section>
+
+  <!-- Задержка -->
+  <section class="panel" data-pane="delay" hidden>
+    <h2>Задержка левого и правого</h2>
+    <p class="hint">Водитель сидит ближе к левой двери, поэтому звук слева приходит раньше, и сцена тянется влево. Телефон играет свип сначала в левый канал, потом в правый и считает разницу во времени прихода.</p>
+    <ol class="steps">
+      <li>Телефон на месте водителя, там, где голова, микрофоном вперёд.</li>
+      <li>Баланс и фейдер в центре.</li>
+      <li>Сделайте 2–3 замера — покажу итог по ним.</li>
+    </ol>
+    <div class="row">
+      <button class="btn" id="delayBtn" disabled>Измерить задержку</button>
+      <button class="btn secondary" id="delayClear">Очистить</button>
+    </div>
+    <div class="progress" id="delayProg"><i></i></div>
+    <div id="delayOut"></div>
+  </section>
+
+  <!-- Шум и наводки -->
+  <section class="panel" data-pane="noise" hidden>
+    <h2>Шум и наводки</h2>
+    <p class="hint">Телефон молча записывает 6 секунд и ищет в шуме посторонние тоны: вой генератора, свист, гул. Сравнение замеров показывает, откуда звук: если тон есть только при поднятой громкости, он идёт из динамиков — это наводка в проводке.</p>
+    <ol class="steps">
+      <li>Музыку остановите, AUX оставьте подключённым.</li>
+      <li>Сделайте замеры по порядку: «Громкость на нуле», «Обычная громкость», «Повышенные обороты».</li>
+    </ol>
+    <label for="noiseScen">Что замеряем</label>
+    <select id="noiseScen"></select>
+    <label for="noiseLabel">Подпись</label>
+    <input type="text" id="noiseLabel" autocomplete="off">
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="noiseBtn" disabled>Записать шум</button>
+      <button class="btn secondary" id="noiseClear">Очистить</button>
+    </div>
+    <div class="progress" id="noiseProg"><i></i></div>
+    <div id="noiseOut"></div>
+  </section>
+
+  <!-- Шумоизоляция -->
+  <section class="panel" data-pane="iso" hidden>
+    <h2>Шумоизоляция</h2>
+    <p class="hint">Запись шума в салоне на ходу. Сделайте замер до шумки и после — на той же дороге, той же скорости, с теми же окнами и вентилятором — и сравните.</p>
+    <p class="note">Замер делает пассажир. Водитель смотрит на дорогу.</p>
+    <label for="isoLabel">Подпись</label>
+    <input type="text" id="isoLabel" value="60 км/ч, асфальт, до шумки" autocomplete="off">
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="isoBtn" disabled>Записать 10 секунд</button>
+      <button class="btn secondary" id="isoClear">Очистить</button>
+    </div>
+    <div class="progress" id="isoProg"><i></i></div>
+    <div class="chart" id="isoChart"></div>
+    <div id="isoOut"></div>
+  </section>
+
+  <!-- Прослушать -->
+  <section class="panel" data-pane="listen" hidden>
+    <h2>Прослушать систему</h2>
+    <p class="hint">Микрофон здесь не нужен. Мелодия с плотным басом помогает оценить звук на слух, свип помогает найти дребезг обшивки: когда что-то задребезжит, запомните частоту на экране.</p>
+    <label for="pan">Куда играть</label>
+    <select id="pan">
+      <option value="0">Оба канала</option>
+      <option value="-1">Только левый</option>
+      <option value="1">Только правый</option>
+    </select>
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="btn" id="melBtn">Играть мелодию</button>
+      <button class="btn" id="swBtn">Свип 20–200 Гц</button>
+    </div>
+    <div class="freq" id="swFreq" hidden>— Гц</div>
+    <div style="height:10px"></div>
+    <button class="btn secondary" id="stopBtn" disabled>Остановить</button>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let ctx=null, micStream=null, proc=null, analyser=null, recording=false, recChunks=[], busy=false;
+let meterVal=0, meterQueued=false;
+
+function getCtx(){ if(!ctx){ const AC=window.AudioContext||window.webkitAudioContext; ctx=new AC(); } return ctx; }
+async function resume(){ const c=getCtx(); if(c.state!=="running"){ try{ await c.resume(); }catch(e){} } return c; }
+
+function setMicStatus(kind,text){ const el=$("#micStatus"); el.className="status "+(kind||""); el.textContent=text; }
+function updateMeter(rms){
+  const db=20*Math.log10(rms+1e-9); meterVal=Math.max(0,Math.min(100,(db+70)/70*100));
+  if(!meterQueued){ meterQueued=true; requestAnimationFrame(()=>{ $("#meterBar").style.width=meterVal+"%"; meterQueued=false; }); }
+}
+
+let diag=load("diag",[]);
+function asType(){ const a=navigator.audioSession; return a?a.type:"нет"; }
+function dlog(m){
+  const t=new Date(), ts=String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0")+":"+String(t.getSeconds()).padStart(2,"0");
+  diag.push(ts+" "+m+" [сессия: "+asType()+(ctx?", звук: "+ctx.state:"")+"]"); if(diag.length>200) diag.splice(0,diag.length-200); save("diag",diag);
+  const el=$("#diagLog"); if(el){ el.textContent=diag.join("\n"); el.scrollTop=el.scrollHeight; }
+}
+async function logDevices(){
+  try{ const ds=await navigator.mediaDevices.enumerateDevices(); dlog("устройства: "+ds.map(d=>d.kind+"="+(d.label||"?")).join("; ")); }catch(e){ dlog("устройства: ошибка "+(e&&e.message)); }
+}
+/* выбор выхода звука в обход ошибки Safari */
+let sinkDest=null, sinkEl=null, sinkId=null;
+const BUILTIN=/^(По умолчанию|Default)|Динамик|Приемник|Приёмник|Speaker|Receiver/i;
+const origConnect=AudioNode.prototype.connect;
+AudioNode.prototype.connect=function(dest,...a){
+  if(sinkDest&&ctx&&dest===ctx.destination) return origConnect.call(this,sinkDest,...a);
+  return origConnect.call(this,dest,...a);
+};
+function sinkSupport(){ return (window.AudioContext&&AudioContext.prototype.setSinkId)?"ctx":(window.HTMLMediaElement&&HTMLMediaElement.prototype.setSinkId)?"el":null; }
+async function outputs(){ try{ return (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audiooutput"); }catch(e){ return []; } }
+async function routeTo(id){
+  const how=sinkSupport(); if(!how||!id) return false;
+  try{
+    if(how==="ctx"){ await ctx.setSinkId(id); }
+    else{
+      if(!sinkDest){ sinkDest=ctx.createMediaStreamDestination(); sinkEl=new Audio(); sinkEl.autoplay=true; sinkEl.playsInline=true; sinkEl.srcObject=sinkDest.stream; }
+      await sinkEl.setSinkId(id); await sinkEl.play();
+    }
+    sinkId=id; save("sink",id); dlog("звук направлен на выход "+id.slice(0,8)+" способом "+how); return true;
+  }catch(e){ dlog("не удалось выбрать выход: "+(e&&e.name)+" "+(e&&e.message)); return false; }
+}
+async function fillSinks(){
+  const how=sinkSupport(), box=$("#sinkBox"); if(!how){ box.hidden=true; return; }
+  const outs=await outputs(); if(!outs.length){ box.hidden=true; return; }
+  box.hidden=false;
+  $("#sinkSel").innerHTML=outs.filter(d=>!/^(По умолчанию|Default)/i.test(d.label)).map(d=>'<option value="'+d.deviceId+'">'+esc(d.label||"Выход")+'</option>').join("");
+  if(sinkId) $("#sinkSel").value=sinkId;
+}
+async function autoSink(){
+  const how=sinkSupport(); dlog("выбор выхода звука: "+(how?"поддерживается ("+how+")":"не поддерживается этим Safari"));
+  if(!how) return;
+  const outs=await outputs(), ext=outs.find(d=>d.label&&!BUILTIN.test(d.label));
+  if(ext){ dlog("найден внешний выход: "+ext.label); await routeTo(ext.deviceId); }
+  fillSinks();
+}
+async function enableMic(){
+  if(micStream) return true;
+  const as=navigator.audioSession, mode=load("route","a");
+  dlog("включаю микрофон, способ "+mode);
+  const setAS=t=>{ if(as&&mode!=="off"){ try{ as.type=t; }catch(e){} } };
+  if(mode==="a") setAS("auto");
+  if(mode==="b") setAS("play-and-record");
+  let c=await resume();
+  if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    setMicStatus("bad","Браузер не даёт доступ к микрофону. Откройте страницу по адресу, который начинается с https://.");
+    return false;
+  }
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  }catch(e){
+    setMicStatus("bad", e && e.name==="NotAllowedError"
+      ? "Доступ к микрофону запрещён. Разрешите его для этого сайта: Настройки → Safari → Микрофон."
+      : "Не удалось включить микрофон: "+(e&&e.message?e.message:e));
+    return false;
+  }
+  // обход ошибки Safari: после включения микрофона явно просим режим «играть и записывать»,
+  // в нём iOS оставляет звук на проводе AUX, а не уводит на динамик телефона
+  { const tr=micStream.getAudioTracks()[0], st=tr&&tr.getSettings?tr.getSettings():{};
+    dlog("микрофон получен: "+(tr?tr.label:"?")+", эхоподавление="+st.echoCancellation+", шумодав="+st.noiseSuppression+", автоусиление="+st.autoGainControl); }
+  if(mode==="a"||mode==="c") setAS("play-and-record");
+  if(mode==="c"){ try{ await c.close(); }catch(e){} ctx=null; c=await resume(); }
+  const src=c.createMediaStreamSource(micStream);
+  proc=c.createScriptProcessor(4096,1,1);
+  proc.onaudioprocess=e=>{
+    const d=e.inputBuffer.getChannelData(0);
+    if(recording) recChunks.push(new Float32Array(d));
+    let s=0,n=0; for(let i=0;i<d.length;i+=4){ s+=d[i]*d[i]; n++; }
+    updateMeter(Math.sqrt(s/n));
+    e.outputBuffer.getChannelData(0).fill(0);
+  };
+  const mute=c.createGain(); mute.gain.value=0;
+  src.connect(proc); proc.connect(mute); mute.connect(c.destination);
+  analyser=c.createAnalyser(); analyser.fftSize=16384; analyser.smoothingTimeConstant=0.3; src.connect(analyser);
+  startLive();
+  setMicStatus("ok","Микрофон включён. Полоска выше показывает уровень звука.");
+  dlog("микрофон готов"); logDevices(); await autoSink();
+  $("#micBtn").textContent="Микрофон включён"; $("#micBtn").disabled=true; $("#micOff").disabled=false;
+  lockButtons(false); routeInfo();
+  return true;
+}
+function disableMic(){
+  if(!micStream) return;
+  micStream.getTracks().forEach(t=>t.stop()); micStream=null; dlog("микрофон выключен");
+  try{ proc&&proc.disconnect(); }catch(e){} proc=null; analyser=null; recording=false;
+  const as=navigator.audioSession;
+  if(as&&load("route","a")!=="off"){ try{ as.type="playback"; setTimeout(()=>{ try{ as.type="auto"; }catch(e){} routeInfo(); },300); }catch(e){} }
+  setMicStatus("","Микрофон выключен. Звук должен вернуться на AUX — для прослушивания мелодии так даже лучше.");
+  $("#micBtn").textContent="Включить микрофон"; $("#micBtn").disabled=false; $("#micOff").disabled=true;
+  lockButtons(false);
+}
+async function beep(){
+  const c=await resume(), t=c.currentTime+0.05; dlog("писк, микрофон "+(micStream?"включён":"выключен"));
+  [660,880].forEach((f,i)=>{ const o=c.createOscillator(), g=c.createGain(), s=t+i*0.35; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(0.35,s+0.03); g.gain.exponentialRampToValueAtTime(0.0001,s+0.3);
+    o.connect(g); g.connect(c.destination); o.start(s); o.stop(s+0.32); });
+  setMicStatus(micStream?"ok":"","Прозвучали два писка. Если они были из колонок машины — всё в порядке. Если из телефона — откройте «Звук идёт из телефона, а не через AUX?» ниже.");
+}
+function routeInfo(){
+  const as=navigator.audioSession, el=$("#routeInfo"); if(!el) return;
+  el.textContent=as?"Safari умеет настраивать звук. Сейчас режим: «"+as.type+"».":"Этот Safari не умеет настраивать звук (нужен iOS 17 или новее), поэтому способы обхода не сработают. Обновите iOS.";
+}
+
+async function playAndRecord(L,R,progEl){
+  if(typeof genStop==='function') genStop();
+  const c=await resume(); const sr=c.sampleRate, n=L.length;
+  const buf=c.createBuffer(2,n,sr); buf.getChannelData(0).set(L); buf.getChannelData(1).set(R);
+  const src=c.createBufferSource(); src.buffer=buf; src.connect(c.destination);
+  recChunks=[]; recording=true;
+  const lead=0.4; src.start(c.currentTime+lead);
+  const total=(lead+n/sr+0.7)*1000, t0=performance.now();
+  progEl.classList.add("on"); const bar=progEl.firstElementChild;
+  while(performance.now()-t0<total){ bar.style.width=Math.min(100,(performance.now()-t0)/total*100)+"%"; await sleep(100); }
+  recording=false; progEl.classList.remove("on"); bar.style.width="0";
+  let len=0; recChunks.forEach(a=>len+=a.length);
+  const x=new Float32Array(len); let o=0; recChunks.forEach(a=>{x.set(a,o);o+=a.length;}); recChunks=[];
+  return {x,sr,lead};
+}
+
+/* ---------- сигналы и анализ ---------- */
+function tone(sr,f,dur,amp,fade){
+  fade=fade||0.02; const n=Math.round(dur*sr), a=new Float32Array(n), nf=Math.round(fade*sr);
+  for(let i=0;i<n;i++){ let g=1; if(i<nf) g=0.5-0.5*Math.cos(Math.PI*i/nf); else if(i>n-nf) g=0.5-0.5*Math.cos(Math.PI*(n-i)/nf);
+    a[i]=amp*g*Math.sin(2*Math.PI*f*i/sr); }
+  return a;
+}
+function toneLevel(x,start,len,f,sr){
+  if(start<0) start=0; if(start+len>x.length) len=x.length-start; if(len<64) return -200;
+  const w=2*Math.PI*f/sr, cw=2*Math.cos(w); let s1=0,s2=0;
+  for(let i=0;i<len;i++){ const win=0.5-0.5*Math.cos(2*Math.PI*i/(len-1)); const s0=x[start+i]*win+cw*s1-s2; s2=s1; s1=s0; }
+  const p=s1*s1+s2*s2-cw*s1*s2; return 10*Math.log10(p/(len*len)+1e-20);
+}
+function median(arr){ if(!arr.length) return 0; const a=Array.from(arr).sort((p,q)=>p-q); return a[Math.floor(a.length/2)]; }
+function findOnset(x,sr){
+  const fr=Math.max(1,Math.round(0.01*sr)), nF=Math.floor(x.length/fr), e=new Float64Array(nF);
+  for(let f=0;f<nF;f++){ let s=0; for(let i=f*fr;i<(f+1)*fr;i++) s+=x[i]*x[i]; e[f]=s/fr; }
+  const noise=median(e.slice(2,Math.min(nF,25))); const thr=Math.max(noise*30,1e-9);
+  for(let f=20;f<nF-3;f++){ if(e[f]>thr&&e[f+1]>thr&&e[f+2]>thr) return f*fr/sr; }
+  return null;
+}
+const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const fmt=(v,d)=>(v>0?"+":"")+v.toFixed(d==null?1:d).replace(".",",");
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+function load(k,def){ try{ const v=localStorage.getItem("pol."+k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function save(k,v){ try{ localStorage.setItem("pol."+k,JSON.stringify(v)); }catch(e){} }
+function nextPow2(n){ let p=1; while(p<n) p<<=1; return p; }
+function fft(re,im){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit;
+    if(i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){
+    const half=len>>1, ang=-2*Math.PI/len;
+    for(let k=0;k<half;k++){
+      const wr=Math.cos(ang*k), wi=Math.sin(ang*k);
+      for(let i=k;i<n;i+=len){ const b=i+half, tr=re[b]*wr-im[b]*wi, ti=re[b]*wi+im[b]*wr;
+        re[b]=re[i]-tr; im[b]=im[i]-ti; re[i]+=tr; im[i]+=ti; }
+    }
+  }
+}
+function fmtHz(f){ return f>=1000?(f/1000).toFixed(f>=10000?0:1).replace(".0","").replace(".",",")+" кГц":Math.round(f)+" Гц"; }
+const PALETTE=["var(--accent)","#4DA3FF","#B07CFF","#5BD69B","#FF7A7A","#8FB0B8"];
+function drawChart(series,o){
+  const W=600,H=300,ml=40,mr=10,mt=12,mb=28, fmin=o.fmin, fmax=o.fmax;
+  let lo=Infinity,hi=-Infinity; series.forEach(s=>s.pts.forEach(p=>{ if(p[0]>=fmin&&p[0]<=fmax){ lo=Math.min(lo,p[1]); hi=Math.max(hi,p[1]); } }));
+  if(!isFinite(lo)){ lo=-20; hi=10; }
+  let ymax=Math.ceil((hi+2)/10)*10, ymin=Math.floor((lo-2)/10)*10; if(ymax-ymin<30) ymin=ymax-30; if(o.ymin!=null) ymin=Math.max(ymin,o.ymin);
+  const x=f=>ml+Math.log10(f/fmin)/Math.log10(fmax/fmin)*(W-ml-mr), y=d=>mt+(ymax-d)/(ymax-ymin)*(H-mt-mb);
+  let g="";
+  [20,30,50,100,200,500,1000,2000,5000,10000,20000].filter(f=>f>=fmin&&f<=fmax).forEach(f=>{
+    g+='<line x1="'+x(f)+'" x2="'+x(f)+'" y1="'+mt+'" y2="'+(H-mb)+'" stroke="var(--line)" stroke-width="1"/>';
+    g+='<text x="'+x(f)+'" y="'+(H-8)+'" fill="var(--muted)" font-size="12" text-anchor="middle">'+(f>=1000?(f/1000)+"к":f)+'</text>'; });
+  for(let d=ymin;d<=ymax;d+=10){
+    g+='<line x1="'+ml+'" x2="'+(W-mr)+'" y1="'+y(d)+'" y2="'+y(d)+'" stroke="var(--line)" stroke-width="1"/>';
+    g+='<text x="'+(ml-6)+'" y="'+(y(d)+4)+'" fill="var(--muted)" font-size="12" text-anchor="end">'+d+'</text>'; }
+  series.forEach(s=>{ const pts=s.pts.filter(p=>p[0]>=fmin&&p[0]<=fmax).map(p=>x(p[0]).toFixed(1)+","+y(Math.max(ymin,Math.min(ymax,p[1]))).toFixed(1)).join(" ");
+    g+='<polyline points="'+pts+'" fill="none" stroke="'+s.color+'" stroke-width="2.5" stroke-linejoin="round"'+(s.dash?' stroke-dasharray="'+(typeof s.dash==="string"?s.dash:"6 5")+'"':'')+'/>'; });
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(o.label||"График")+'">'+g+'<text x="'+ml+'" y="'+(mt-2)+'" fill="var(--muted)" font-size="11">дБ</text></svg>';
+}
+function verdictHTML(kind,sign,title,text){
+  return '<div class="verdict '+kind+'"><div class="sign" aria-hidden="true">'+sign+'</div><div class="txt"><b>'+title+'</b>'+text+'</div></div>';
+}
+
+/* ---------- Тест 1: левый и правый ---------- */
+const LR_FREQS=[120,160,200,250], SEG=1.0;
+async function runLR(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, segN=Math.round(SEG*sr), pattern=[];
+    LR_FREQS.forEach(f=>pattern.push({f,inv:false},{f,inv:true},{f,inv:true},{f,inv:false}));
+    const n=segN*pattern.length, L=new Float32Array(n), R=new Float32Array(n);
+    pattern.forEach((p,k)=>{ const t=tone(sr,p.f,0.85,0.5); L.set(t,k*segN); R.set(p.inv?t.map(v=>-v):t,k*segN); });
+    $("#lrOut").innerHTML='<p class="hint" style="margin-top:12px">Идёт замер, около 17 секунд…</p>';
+    const {x,lead}=await playAndRecord(L,R,$("#lrProg"));
+    const on=findOnset(x,sr); const base=on!=null?on:lead+0.05;
+    const res={}; LR_FREQS.forEach(f=>res[f]={a:[],b:[]});
+    pattern.forEach((p,k)=>{ const st=Math.round((base+k*SEG+0.2)*sr); res[p.f][p.inv?"b":"a"].push(toneLevel(x,st,Math.round(0.45*sr),p.f,sr)); });
+    let rows="", diffs=[], loudest=-200;
+    LR_FREQS.forEach(f=>{ const a=mean(res[f].a), b=mean(res[f].b), d=a-b; diffs.push(d); loudest=Math.max(loudest,a,b);
+      rows+='<tr><td>'+f+' Гц</td><td class="num">'+fmt(d)+' дБ</td><td class="'+(d>=1.5?"good":d<=-1.5?"badc":"")+'">'+(d>=1.5?"в фазе":d<=-1.5?"противофаза":"неясно")+'</td></tr>'; });
+    const noiseDb=Math.max(...LR_FREQS.map(f=>toneLevel(x,Math.round(0.03*sr),Math.round(0.3*sr),f,sr)));
+    const avg=mean(diffs), pos=diffs.filter(d=>d>=1.5).length, neg=diffs.filter(d=>d<=-1.5).length;
+    let html;
+    if(loudest-noiseDb<12) html=verdictHTML("warn","?","Слишком тихо","Микрофон почти не слышит сигнал. Прибавьте громкость и проверьте, что звук идёт через AUX.");
+    else if(avg>=2&&pos>=3) html=verdictHTML("ok","+","Левый и правый в фазе","Обычный сигнал громче перевёрнутого в среднем на "+fmt(avg)+" дБ. Плюс и минус подключены одинаково.");
+    else if(avg<=-2&&neg>=3) html=verdictHTML("bad","−","Один динамик перевёрнут","Перевёрнутый сигнал громче на "+fmt(-avg).replace("+","")+" дБ. У одного из пары перепутаны плюс и минус. Найдите какой — в тесте «Один динамик» — и поменяйте провода.");
+    else html=verdictHTML("warn","?","Результат неясный","Разница всего "+fmt(avg)+" дБ. Положите телефон точно посередине, выключите саб и повторите.");
+    repFromHTML("lr",html,null,{ok:"в фазе",bad:"один перевёрнут",warn:"неясно"});
+    $("#lrOut").innerHTML=html+'<div class="table-wrap"><table><thead><tr><th>Частота</th><th>Обычный минус перевёрнутый</th><th>Вывод</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }catch(e){ $("#lrOut").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  busy=false; lockButtons(false);
+}
+
+/* ---------- Тест 2: саб и фронт ---------- */
+const SUB_FREQS=[40,50,63,80,100]; let subMeas=load("sub",[]);
+async function runSub(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, segN=Math.round(SEG*sr), n=segN*SUB_FREQS.length;
+    const L=new Float32Array(n);
+    SUB_FREQS.forEach((f,k)=>L.set(tone(sr,f,0.85,0.6,0.04),k*segN));
+    const {x,lead}=await playAndRecord(L,L,$("#subProg"));
+    const on=findOnset(x,sr); const base=on!=null?on:lead+0.05;
+    const lv=SUB_FREQS.map((f,k)=>toneLevel(x,Math.round((base+k*SEG+0.2)*sr),Math.round(0.45*sr),f,sr));
+    const total=10*Math.log10(mean(lv.map(d=>Math.pow(10,d/10))));
+    const label=$("#subLabel").value.trim()||("Замер "+(subMeas.length+1));
+    subMeas.push({label,lv,total}); save("sub",subMeas);
+    $("#subLabel").value=subMeas.length===1?"Фаза 180°":"Замер "+(subMeas.length+1);
+    renderSub();
+    if(subMeas.length>=2){ const best=subMeas.reduce((b,m)=>m.total>b.total?m:b,subMeas[0]), gap=best.total-Math.max(...subMeas.filter(m=>m!==best).map(m=>m.total));
+      report("sub",gap>=1.5?{s:"ok",v:best.label,d:"Бас громче остальных вариантов на "+gap.toFixed(1).replace(".",",")+" дБ."}:{s:"warn",v:"разница мала",d:"Варианты фазы отличаются меньше чем на 1,5 дБ."}); }
+  }catch(e){ $("#subOut").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  busy=false; lockButtons(false);
+}
+function renderSub(){
+  if(!subMeas.length){ $("#subOut").innerHTML=""; return; }
+  const best=subMeas.reduce((b,m)=>m.total>b.total?m:b,subMeas[0]);
+  let html="";
+  if(subMeas.length<2) html='<p class="hint" style="margin-top:12px">Первый замер готов. Переверните фазу саба и сделайте второй.</p>';
+  else{
+    const others=subMeas.filter(m=>m!==best), gap=best.total-Math.max(...others.map(m=>m.total));
+    html= gap>=1.5
+      ? verdictHTML("ok","✓","Правильно: «"+esc(best.label)+"»","Бас громче остальных вариантов на "+gap.toFixed(1).replace(".",",")+" дБ. Оставьте эту настройку.")
+      : verdictHTML("warn","?","Разница маленькая","Всего "+gap.toFixed(1).replace(".",",")+" дБ. Попробуйте громче или поставьте частоту среза саба и фронта ближе друг к другу.");
+  }
+  let head='<th>Замер</th>'+SUB_FREQS.map(f=>'<th>'+f+'</th>').join("")+'<th>Итог</th>';
+  let rows=subMeas.map(m=>'<tr><td'+(m===best&&subMeas.length>1?' class="good"':'')+'>'+esc(m.label)+'</td>'+
+    m.lv.map(d=>'<td class="num">'+(d-best.total).toFixed(0)+'</td>').join("")+
+    '<td class="num">'+fmt(m.total-best.total)+' дБ</td></tr>').join("");
+  html+='<div class="table-wrap"><table><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div><p class="hint" style="margin-top:8px">Уровни в дБ относительно лучшего замера, по частотам в герцах.</p>';
+  $("#subOut").innerHTML=html;
+}
+
+/* ---------- Тест 3: один динамик ---------- */
+const DRIVERS={sub:{fc:50,name:"Сабвуфер"},midbass:{fc:250,name:"Мидбас"},mid:{fc:1000,name:"Среднечастотник"},tw:{fc:3500,name:"Пищалка"}};
+let oneRes=load("one",[]), micSign=load("micSign",null);
+function decimFactor(sr,fc){ return Math.max(1,Math.floor(sr/(fc*16))); }
+function pulseTemplate(fc,fs){
+  const sig=0.2/fc, h=Math.ceil(4*sig*fs), t=new Float32Array(2*h+1);
+  for(let m=-h;m<=h;m++){ const tt=m/fs; t[m+h]=Math.cos(2*Math.PI*fc*tt)*Math.exp(-tt*tt/(2*sig*sig)); }
+  return {t,h};
+}
+function decimate(x,D){
+  if(D===1) return x;
+  const n=Math.floor(x.length/D), y=new Float32Array(n), cs=new Float64Array(x.length+1);
+  for(let i=0;i<x.length;i++) cs[i+1]=cs[i]+x[i];
+  for(let j=0;j<n;j++){ const a=j*D; y[j]=(cs[a+D]-cs[a])/D; }
+  return y;
+}
+async function runOne(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, key=$("#drv").value, fc=DRIVERS[key].fc, ch=$("#ch").value;
+    const D=decimFactor(sr,fc), N=12, P=Math.round(Math.max(0.35,10/fc)*sr/D)*D;
+    const {t,h}=pulseTemplate(fc,sr), n=P*N, L=new Float32Array(n), R=new Float32Array(n);
+    for(let k=0;k<N;k++){ const c0=k*P+h; for(let m=-h;m<=h;m++){ const v=0.8*t[m+h]; if(ch!=="R") L[c0+m]=v; if(ch!=="L") R[c0+m]=v; } }
+    const {x}=await playAndRecord(L,R,$("#oneProg"));
+    const y=decimate(x,D), fs=sr/D, Pd=P/D, tp=pulseTemplate(fc,fs), s0=Math.floor(0.3*fs);
+    let K=N-1; while(K>1&&s0+K*Pd+Pd>y.length) K--;
+    const avg=new Float64Array(Pd);
+    for(let k=0;k<K;k++) for(let i=0;i<Pd;i++) avg[i]+=y[s0+k*Pd+i];
+    let mu=0; for(let i=0;i<Pd;i++){ avg[i]/=K; mu+=avg[i]; } mu/=Pd; for(let i=0;i<Pd;i++) avg[i]-=mu;
+    const cc=new Float64Array(Pd);
+    for(let j=0;j<Pd;j++){ let s=0; for(let m=-tp.h;m<=tp.h;m++) s+=avg[((j+m)%Pd+Pd)%Pd]*tp.t[m+tp.h]; cc[j]=s; }
+    let jp=0; for(let j=1;j<Pd;j++) if(Math.abs(cc[j])>Math.abs(cc[jp])) jp=j;
+    const sign=Math.sign(cc[jp])||1, w=Math.round(1.5*fs/fc); let opp=0;
+    for(let d=-w;d<=w;d++){ const v=cc[((jp+d)%Pd+Pd)%Pd]; if(Math.sign(v)===-sign) opp=Math.max(opp,Math.abs(v)); }
+    const ratio=Math.abs(cc[jp])/(opp+1e-12), ex=Math.round(3*fs/fc), rest=[];
+    for(let j=0;j<Pd;j++){ const dd=Math.min(Math.abs(j-jp),Pd-Math.abs(j-jp)); if(dd>ex) rest.push(Math.abs(cc[j])); }
+    const snr=Math.abs(cc[jp])/(median(rest)*1.4826+1e-12);
+    let agree=0;
+    for(let k=0;k<K;k++){ let s=0; const b=s0+k*Pd+jp; for(let m=-tp.h;m<=tp.h;m++){ const i=b+m; if(i>=0&&i<y.length) s+=(y[i]-mu)*tp.t[m+tp.h]; } if(Math.sign(s)===sign) agree++; }
+    const cons=agree/K;
+    const conf=(snr>15&&ratio>1.03&&cons>=0.9)?"высокая":(snr>6&&ratio>1.02&&cons>=0.7)?"средняя":"низкая";
+    const label=$("#oneLabel").value.trim()||("Динамик "+(oneRes.length+1));
+    oneRes.push({label,key,sign:conf==="низкая"?0:sign,conf}); save("one",oneRes);
+    renderOne(); oneSummary();
+  }catch(e){ $("#oneOut").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  busy=false; lockButtons(false);
+}
+function renderOne(){
+  const cal=$("#oneCal");
+  if(!oneRes.length){ $("#oneOut").innerHTML=""; cal.innerHTML=micSign!=null?calNote():""; return; }
+  const last=oneRes[oneRes.length-1], ref=oneRes.find(r=>r.key===last.key&&r.sign!==0);
+  let html;
+  if(last.sign===0) html=verdictHTML("warn","?","Не удалось определить","Сигнал слабый или неоднозначный. Поднесите телефон ближе к динамику, прибавьте громкость и повторите.");
+  else if(micSign!=null) html=last.sign===micSign
+      ? verdictHTML("ok","+","Подключён правильно","Полярность совпадает с динамиком, проверенным батарейкой. Уверенность: "+last.conf+".")
+      : verdictHTML("bad","−","Плюс и минус перепутаны","Поменяйте местами провода на этом динамике. Уверенность: "+last.conf+".");
+  else if(ref&&ref!==last&&ref.sign!==last.sign) html=verdictHTML("bad",last.sign>0?"+":"−","Противоположно «"+esc(ref.label)+"»","Этот динамик подключён наоборот относительно первого. Если первый проверен батарейкой и он правильный — поменяйте плюс и минус здесь.");
+  else if(ref&&ref!==last) html=verdictHTML("ok",last.sign>0?"+":"−","Совпадает с «"+esc(ref.label)+"»","Полярность такая же, как у первого динамика этого типа. Уверенность: "+last.conf+".");
+  else html=verdictHTML(last.sign>0?"ok":"bad",last.sign>0?"+":"−",last.sign>0?"Знак плюс":"Знак минус","Это первый замер для этого типа динамиков, с ним будут сравниваться следующие. Уверенность: "+last.conf+".");
+  const rows=oneRes.map((r,i)=>{ const rf=oneRes.find(q=>q.key===r.key&&q.sign!==0);
+    let rel;
+    if(r.sign===0) rel="—";
+    else if(micSign!=null) rel=r.sign===micSign?'<span class="good">правильно</span>':'<span class="badc">наоборот</span>';
+    else rel=rf===r?"эталон":(rf.sign===r.sign?'<span class="good">совпадает</span>':'<span class="badc">наоборот</span>');
+    const calBtn=(micSign==null&&r.sign!==0)?'<td><button class="mini" data-cal="'+i+'">Проверен батарейкой</button></td>':'<td></td>';
+    return '<tr><td>'+esc(r.label)+'</td><td>'+DRIVERS[r.key].name+'</td><td class="num">'+(r.sign>0?"+":r.sign<0?"−":"?")+'</td><td>'+rel+'</td>'+calBtn+'</tr>'; }).join("");
+  html+='<div class="table-wrap"><table><thead><tr><th>Динамик</th><th>Тип</th><th>Знак</th><th>Вывод</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  $("#oneOut").innerHTML=html;
+  cal.innerHTML=micSign!=null?calNote():'<p class="note">Чтобы получать ответ «правильно» или «наоборот» без сравнения: проверьте один динамик батарейкой (диффузор пошёл наружу — подключён правильно), измерьте его здесь и нажмите «Проверен батарейкой». Телефон запомнит калибровку.</p>';
+  $("#oneOut").querySelectorAll("[data-cal]").forEach(b=>b.addEventListener("click",()=>{ micSign=oneRes[+b.dataset.cal].sign; save("micSign",micSign); renderOne(); }));
+  const rb=$("#calReset"); if(rb) rb.addEventListener("click",()=>{ micSign=null; save("micSign",null); renderOne(); });
+}
+function calNote(){ return '<p class="note">Телефон откалиброван по динамику, проверенному батарейкой: знак «'+(micSign>0?"+":"−")+'» означает «подключён правильно». <button class="mini" id="calReset">Сбросить</button></p>'; }
+
+/* ---------- АЧХ ---------- */
+let curves=load("curves",[]);
+function chanArrays(sig,ch){ const z=new Float32Array(sig.length); return {L:ch==="R"?z:sig,R:ch==="L"?z:sig}; }
+async function runFR(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, T=8, f1=20, f2=Math.min(20000,sr/2*0.9), n=Math.round(T*sr), K=T/Math.log(f2/f1), nf=Math.round(0.05*sr);
+    const sw=new Float32Array(n);
+    for(let i=0;i<n;i++){ const t=i/sr; let g=1; if(i<nf) g=0.5-0.5*Math.cos(Math.PI*i/nf); else if(i>n-nf) g=0.5-0.5*Math.cos(Math.PI*(n-i)/nf);
+      sw[i]=0.5*g*Math.sin(2*Math.PI*f1*K*(Math.exp(t/K)-1)); }
+    const {L,R}=chanArrays(sw,$("#frCh").value);
+    $("#frTips").innerHTML='<p class="hint" style="margin-top:12px">Идёт замер, около 10 секунд…</p>';
+    const {x}=await playAndRecord(L,R,$("#frProg"));
+    let peak=0; for(let i=0;i<x.length;i++) peak=Math.max(peak,Math.abs(x[i]));
+    if(peak<0.003){ $("#frTips").innerHTML=verdictHTML("warn","?","Слишком тихо","Микрофон почти не слышит свип. Прибавьте громкость и проверьте подключение AUX."); return; }
+    const N=nextPow2(x.length+n);
+    const xr=new Float64Array(N), xi=new Float64Array(N); for(let i=0;i<n;i++) xr[i]=sw[i]; fft(xr,xi);
+    const yr=new Float64Array(N), yi=new Float64Array(N); for(let i=0;i<x.length;i++) yr[i]=x[i]; fft(yr,yi);
+    const df=sr/N, pts=[];
+    for(let f=20;f<=Math.min(20000,f2);f*=Math.pow(2,1/12)){
+      const a=Math.max(1,Math.floor(f/Math.pow(2,1/12)/df)), b=Math.max(a,Math.ceil(f*Math.pow(2,1/12)/df));
+      let sy=0,sx=0; for(let k=a;k<=b;k++){ sy+=yr[k]*yr[k]+yi[k]*yi[k]; sx+=xr[k]*xr[k]+xi[k]*xi[k]; }
+      pts.push([f,10*Math.log10(sy/(sx+1e-30)+1e-30)]);
+    }
+    const ref=mean(pts.filter(p=>p[0]>=200&&p[0]<=2000).map(p=>p[1]));
+    pts.forEach(p=>{ p[0]=Math.round(p[0]*10)/10; p[1]=Math.round((p[1]-ref)*10)/10; });
+    const label=$("#frLabel").value.trim()||("Замер "+(curves.length+1));
+    curves.forEach(cv=>cv.on=false);
+    if(curves.length) curves[curves.length-1].on=true;
+    curves.push({label,pts,on:true,color:PALETTE[curves.length%PALETTE.length]});
+    if(curves.length>12) curves.shift();
+    save("curves",curves);
+    $("#frLabel").value="Замер "+(curves.length+1);
+    renderFR();
+    { const b=scoreVs(curves[curves.length-1].pts,"harman"); if(b) report("fr",{s:b.score>=75?"ok":b.score>=55?"warn":"bad",n:b.score,v:b.score+" из 100 по Harman",d:devText(b.dev)[0]||"Сильных отклонений от эталона нет."}); }
+  }catch(e){ $("#frTips").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderFR(){
+  const vis=curves.filter(cv=>cv.on);
+  $("#frChart").innerHTML=curves.length?drawChart(vis.concat(targetSeries()),{fmin:20,fmax:20000,ymin:-40,label:"АЧХ"}):"";
+  $("#frLegend").innerHTML=curves.map((cv,i)=>'<li><input type="checkbox" data-i="'+i+'"'+(cv.on?" checked":"")+' aria-label="Показать '+esc(cv.label)+'"><span class="sw" style="background:'+cv.color+'"></span><span class="nm">'+esc(cv.label)+'</span><button class="mini" data-del="'+i+'">Удалить</button></li>').join("")+(curves.length?targetLegend():"");
+  bindTargetLegend($("#frLegend"),renderFR);
+  $("#frLegend").querySelectorAll("input[data-i]").forEach(el=>el.addEventListener("change",()=>{ curves[+el.dataset.i].on=el.checked; save("curves",curves); renderFR(); }));
+  $("#frLegend").querySelectorAll("[data-del]").forEach(el=>el.addEventListener("click",()=>{ curves.splice(+el.dataset.del,1); save("curves",curves); renderFR(); }));
+  const last=vis[vis.length-1];
+  $("#frScore").innerHTML=last?'<h2 style="margin-top:16px">Сравнение с эталонами: «'+esc(last.label)+'»</h2>'+scoreBlock(last.pts):"";
+  $("#frTips").innerHTML=last?'<h2 style="margin-top:16px">Подсказки по «'+esc(last.label)+'»</h2><ul class="tips">'+frTips(last.pts).map(t=>"<li>"+t+"</li>").join("")+'</ul>':(curves.length?"":'<p class="hint" style="margin-top:12px">Пока нет замеров. Снимите первый, потом настройте что-нибудь и снимите второй — графики наложатся друг на друга.</p>');
+}
+function frTips(pts){
+  const band=(a,b)=>pts.filter(p=>p[0]>=a&&p[0]<=b), avg=(a,b)=>{ const v=band(a,b).map(p=>p[1]); return v.length?mean(v):0; };
+  const tips=[], bass=avg(40,80), hi=avg(5000,10000);
+  if(bass>14) tips.push("Бас 40–80 Гц громче середины на "+bass.toFixed(0)+" дБ — это перебор. Убавьте гейн саба или бас на магнитоле.");
+  else if(bass<2) tips.push("Баса мало: 40–80 Гц почти не громче середины. Учитывая, что микрофон iPhone занижает низ, можно прибавить гейн саба.");
+  else tips.push("Баланс баса нормальный: 40–80 Гц громче середины на "+bass.toFixed(0)+" дБ. Для машины обычно приятно от +6 до +12 дБ.");
+  let dip=null, peak=null;
+  pts.forEach((p,i)=>{ if(p[0]<45||p[0]>220) return;
+    const nb=pts.filter(q=>q[0]>=p[0]/2&&q[0]<=p[0]*2&&Math.abs(Math.log2(q[0]/p[0]))>0.25).map(q=>q[1]); if(nb.length<4) return;
+    const base=mean(nb), d=base-p[1];
+    if(!dip||d>dip.d) dip={f:p[0],d}; if(!peak||-d>peak.d) peak={f:p[0],d:-d}; });
+  if(dip&&dip.d>=6) tips.push("Провал около "+fmtHz(dip.f)+" (−"+dip.d.toFixed(0)+" дБ). Часто это стык саба и дверей: проверьте фазу во вкладке «Саб и фронт» и попробуйте сдвинуть частоту среза саба ближе к "+fmtHz(dip.f)+".");
+  if(peak&&peak.d>=6) tips.push("Гул около "+fmtHz(peak.f)+" (+"+peak.d.toFixed(0)+" дБ): резонанс салона или короба. Подрежьте эту частоту эквалайзером или убавьте бас-буст на сабе.");
+  if(!(dip&&dip.d>=6)&&!(peak&&peak.d>=6)) tips.push("В басу нет сильных провалов и гула — стык саба и дверей выглядит ровно.");
+  if(hi<-12) tips.push("Высоких мало: 5–10 кГц тише середины на "+(-hi).toFixed(0)+" дБ. Проверьте пищалки и направьте телефон микрофоном вперёд.");
+  tips.push("Сабсоник, если он есть на сабе, ставьте около 25–30 Гц: ниже машина всё равно почти не играет, а динамик скажет спасибо.");
+  return tips;
+}
+
+/* ---------- Перегруз ---------- */
+const DIST_FREQS=[125,100,80,63,50,40,30];
+async function runDist(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, segN=Math.round(SEG*sr), n=segN*DIST_FREQS.length, L=new Float32Array(n);
+    DIST_FREQS.forEach((f,k)=>L.set(tone(sr,f,0.85,0.7,0.04),k*segN));
+    const {x,lead}=await playAndRecord(L,L,$("#distProg"));
+    const on=findOnset(x,sr), base=on!=null?on:lead+0.05, wl=Math.round(0.45*sr), nl=Math.round(0.3*sr), n0=Math.round(0.03*sr);
+    const res=DIST_FREQS.map((f,k)=>{
+      const st=Math.round((base+k*SEG+0.2)*sr), fund=toneLevel(x,st,wl,f,sr), noiseF=toneLevel(x,n0,nl,f,sr);
+      let hp=0;
+      for(let h=2;h<=6;h++){ const fh=f*h; if(fh>sr/2.2) break; const lv=toneLevel(x,st,wl,fh,sr), nz=toneLevel(x,n0,nl,fh,sr); if(lv>nz+6) hp+=Math.pow(10,lv/10); }
+      return {f,thd:100*Math.sqrt(hp/Math.pow(10,fund/10)),snr:fund-noiseF};
+    }).sort((a,b)=>a.f-b.f);
+    const ok=res.filter(r=>r.snr>=15);
+    if(!ok.length){ $("#distOut").innerHTML=verdictHTML("warn","?","Слишком тихо","Микрофон почти не слышит тоны. Прибавьте громкость."); return; }
+    const worst=ok.reduce((a,b)=>b.thd>a.thd?b:a,ok[0]);
+    const cls=t=>t<3?"good":t<10?"":"badc", word=t=>t<3?"чисто":t<10?"заметно":"хрипит";
+    let html= worst.thd>=10 ? verdictHTML("bad","!","Перегруз на "+fmtHz(worst.f),"Искажения "+worst.thd.toFixed(0)+"%. На этой громкости саб хрипит: убавьте громкость, гейн или бас-буст, либо поднимите сабсоник.")
+      : worst.thd>=3 ? verdictHTML("warn","~","Искажения заметны","Максимум "+worst.thd.toFixed(0)+"% на "+fmtHz(worst.f)+". Это близко к пределу — громче лучше не делать.")
+      : verdictHTML("ok","✓","Чисто","Искажения не больше "+worst.thd.toFixed(1).replace(".",",")+"%. Можно прибавить и проверить ещё раз.");
+    html+='<div class="table-wrap"><table><thead><tr><th>Частота</th><th>Искажения</th><th>Вывод</th></tr></thead><tbody>'+
+      res.map(r=>'<tr><td>'+r.f+' Гц</td><td class="num">'+(r.snr<15?"—":r.thd.toFixed(1).replace(".",",")+"%")+'</td><td class="'+(r.snr<15?"":cls(r.thd))+'">'+(r.snr<15?"не слышно":word(r.thd))+'</td></tr>').join("")+
+      '</tbody></table></div><p class="hint" style="margin-top:8px">До 3% на слух незаметно, 3–10% — грань, больше 10% — слышно, что саб «пердит». Самые низкие частоты микрофон iPhone слышит плохо.</p>';
+    $("#distOut").innerHTML=html; repFromHTML("dist",html);
+  }catch(e){ $("#distOut").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  finally{ busy=false; lockButtons(false); }
+}
+
+/* ---------- Дребезг ---------- */
+async function runRattle(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, T=20, f1=20, f2=200, sw0=0.6, nb=Math.round(0.1*sr), n=Math.round((sw0+T)*sr), sig=new Float32Array(n);
+    const beep=tone(sr,1000,0.1,0.4,0.01); sig.set(beep,0);
+    const s0=Math.round(sw0*sr), ns=Math.round(T*sr), K=T/Math.log(f2/f1), nf=Math.round(0.3*sr);
+    for(let i=0;i<ns;i++){ const t=i/sr; let g=1; if(i<nf) g=0.5-0.5*Math.cos(Math.PI*i/nf); else if(i>ns-nf) g=0.5-0.5*Math.cos(Math.PI*(ns-i)/nf);
+      sig[s0+i]=0.6*g*Math.sin(2*Math.PI*f1*K*(Math.exp(t/K)-1)); }
+    const {L,R}=chanArrays(sig,$("#ratCh").value);
+    $("#ratOut").innerHTML='<p class="hint" style="margin-top:12px">Идёт замер, около 22 секунд. Не шумите.</p>';
+    const {x,lead}=await playAndRecord(L,R,$("#ratProg"));
+    const on=findOnset(x,sr), start=(on!=null?on:lead+0.05)+sw0;
+    const FL=2048, hop=1024, win=new Float64Array(FL); for(let i=0;i<FL;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FL-1));
+    const df=sr/FL, ka=Math.round(1500/df), kb=Math.min(FL/2-1,Math.round(8000/df));
+    const hfEnergy=at=>{ const re=new Float64Array(FL), im=new Float64Array(FL); for(let i=0;i<FL;i++) re[i]=(x[at+i]||0)*win[i]; fft(re,im); let e=0; for(let k=ka;k<=kb;k++) e+=re[k]*re[k]+im[k]*im[k]; return e; };
+    const noiseE=[]; for(let a=Math.round(0.03*sr);a+FL<Math.round(0.33*sr);a+=hop) noiseE.push(hfEnergy(a));
+    const nE=median(noiseE)||1e-12, fr=[];
+    for(let a=Math.round(start*sr);a+FL<x.length;a+=hop){ const tau=(a+FL/2)/sr-start; if(tau<0.3) continue; if(tau>T-0.3) break; fr.push({f:f1*Math.pow(f2/f1,tau/T),e:hfEnergy(a)}); }
+    if(fr.length<20){ $("#ratOut").innerHTML='<p class="status bad">Запись получилась слишком короткой. Повторите.</p>'; return; }
+    const base=Math.max(median(fr.map(q=>q.e)),nE);
+    fr.forEach(q=>q.ex=10*Math.log10(q.e/base+1e-12));
+    const ev=[]; let cur=null, gap=0;
+    fr.forEach(q=>{ const hit=q.ex>=10&&q.e>nE*10;
+      if(hit){ if(cur){ cur.f2=q.f; cur.peak=Math.max(cur.peak,q.ex); gap=0; } else cur={f1:q.f,f2:q.f,peak:q.ex}; }
+      else if(cur){ if(++gap>2){ ev.push(cur); cur=null; gap=0; } } });
+    if(cur) ev.push(cur);
+    let html;
+    if(!ev.length) html=verdictHTML("ok","✓","Дребезга не найдено","На всём свипе 20–200 Гц лишнего звона нет. Если на слух что-то звенит, прибавьте громкость и повторите.");
+    else html=verdictHTML("bad","!","Найден дребезг","Что-то звенит на частотах ниже. Включите свип во вкладке «Прослушать» и на этих частотах ищите на слух: обшивка дверей, полка, номер, зеркала. Сильный перегруз саба выглядит так же — сравните с тестом перегруза.")+
+      '<div class="table-wrap"><table><thead><tr><th>Частоты</th><th>Сила звона</th></tr></thead><tbody>'+
+      ev.map(e=>'<tr><td>'+(Math.round(e.f1)===Math.round(e.f2)?Math.round(e.f1)+" Гц":Math.round(e.f1)+"–"+Math.round(e.f2)+" Гц")+'</td><td class="num">+'+e.peak.toFixed(0)+' дБ</td></tr>').join("")+'</tbody></table></div>';
+    html+='<div class="chart">'+drawChart([{pts:fr.map(q=>[q.f,q.ex]),color:"var(--accent)"}],{fmin:20,fmax:200,ymin:-20,label:"Звон по частотам"})+'</div><p class="hint">Линия — насколько звон на высоких частотах громче обычного. Всплески выше 10 дБ — подозрение на дребезг.</p>';
+    $("#ratOut").innerHTML=html; repFromHTML("rattle",html,ev.length?"Звенит на "+ev.map(e=>Math.round(e.f1)===Math.round(e.f2)?Math.round(e.f1)+" Гц":Math.round(e.f1)+"–"+Math.round(e.f2)+" Гц").join(", ")+".":"");
+  }catch(e){ $("#ratOut").innerHTML='<p class="status bad">Ошибка: '+esc(String(e&&e.message||e))+'</p>'; }
+  finally{ busy=false; lockButtons(false); }
+}
+
+
+/* ---------- Мастер настройки магнитолы ---------- */
+const CTL_NAME={bass:"Bass",mid:"Middle",treble:"Treble"};
+const GENRES=[
+  {id:"rap",name:"Рэп и хип-хоп с басом",b:12,ub:2,pr:0,t:2},
+  {id:"edm",name:"Электронная музыка",b:11,ub:1,pr:0,t:4},
+  {id:"pop",name:"Поп",b:8,ub:1,pr:1,t:3},
+  {id:"rock",name:"Рок",b:7,ub:2,pr:1,t:3},
+  {id:"voice",name:"Шансон, голос, подкасты",b:3,ub:0,pr:3,t:0},
+  {id:"jazz",name:"Классика и джаз",b:5,ub:0,pr:0,t:1},
+  {id:"flat",name:"Ровно и естественно",b:6,ub:0,pr:0,t:0}
+];
+function targetDb(g,f){
+  const low=1/(1+Math.pow(f/90,3)), ub=Math.exp(-Math.pow(Math.log2(f/140),2)/0.5), pr=Math.exp(-Math.pow(Math.log2(f/2800),2)/0.6), hi=1/(1+Math.pow(5000/f,3));
+  return g.b*low+g.ub*ub+g.pr*pr+g.t*hi;
+}
+let wiz=load("wiz",null), wizIdx=-1, wizSteps=[];
+async function measureSweep(ch,T,prog){
+  const c=await resume(), sr=c.sampleRate, f1=20, f2=Math.min(20000,sr/2*0.9), n=Math.round(T*sr), K=T/Math.log(f2/f1), nf=Math.round(0.05*sr), sw=new Float32Array(n);
+  for(let i=0;i<n;i++){ const t=i/sr; let g=1; if(i<nf) g=0.5-0.5*Math.cos(Math.PI*i/nf); else if(i>n-nf) g=0.5-0.5*Math.cos(Math.PI*(n-i)/nf);
+    sw[i]=0.5*g*Math.sin(2*Math.PI*f1*K*(Math.exp(t/K)-1)); }
+  const {L,R}=chanArrays(sw,ch), {x}=await playAndRecord(L,R,prog);
+  let peak=0; for(let i=0;i<x.length;i++) peak=Math.max(peak,Math.abs(x[i]));
+  if(peak<0.003) throw new Error("Микрофон почти не слышит сигнал. Прибавьте громкость и повторите шаг.");
+  const N=nextPow2(x.length+n), xr=new Float64Array(N), xi=new Float64Array(N), yr=new Float64Array(N), yi=new Float64Array(N);
+  for(let i=0;i<n;i++) xr[i]=sw[i]; fft(xr,xi); for(let i=0;i<x.length;i++) yr[i]=x[i]; fft(yr,yi);
+  const df=sr/N, pts=[];
+  for(let f=20;f<=Math.min(20000,f2);f*=Math.pow(2,1/12)){
+    const a=Math.max(1,Math.floor(f/Math.pow(2,1/12)/df)), b=Math.max(a,Math.ceil(f*Math.pow(2,1/12)/df)); let sy=0,sx=0;
+    for(let k=a;k<=b;k++){ sy+=yr[k]*yr[k]+yi[k]*yi[k]; sx+=xr[k]*xr[k]+xi[k]*xi[k]; }
+    pts.push([Math.round(f*10)/10,10*Math.log10(sy/(sx+1e-30)+1e-30)]);
+  }
+  return pts;
+}
+function bandLevel(pts,a,b){ const v=pts.filter(p=>p[0]>=a&&p[0]<=b).map(p=>Math.pow(10,p[1]/10)); return 10*Math.log10(mean(v)); }
+function buildWizSteps(cfg){
+  const st=[]; let back="";
+  st.push({id:"base",kind:"fr",text:"Выставьте "+cfg.ctrls.map(c=>CTL_NAME[c]).join(", ")+" в 0, баланс и фейдер в центр. Выключите тонкомпенсацию (Loud) и пресеты эквалайзера, если они есть."});
+  cfg.ctrls.forEach(c=>{ st.push({id:c,kind:"fr",text:back+"Выставьте "+CTL_NAME[c]+" на +"+cfg.max+". Остальное не трогайте."}); back="Верните "+CTL_NAME[c]+" в 0. "; });
+  const bs=Math.min(3,cfg.max);
+  st.push({id:"balC",kind:"lr",text:back+"Баланс и фейдер в центре. Телефон по очереди сыграет в левый и правый канал."});
+  st.push({id:"balR",kind:"lr",bs,text:"Сдвиньте баланс вправо на "+bs+" деления (R"+bs+")."});
+  st.push({id:"fadF",kind:"lvl",text:"Верните баланс в центр. Фейдер полностью вперёд."});
+  st.push({id:"fadR",kind:"lvl",text:"Фейдер полностью назад."});
+  return st;
+}
+function wizStart(){
+  const ctrls=[...document.querySelectorAll(".wizCtl")].filter(e=>e.checked).map(e=>e.value);
+  const cfg={ctrls,max:parseInt($("#wizMax").value,10)};
+  wiz={cfg,data:{}}; wizSteps=buildWizSteps(cfg); wizIdx=0; $("#wizOut").innerHTML=""; renderWizStep();
+}
+function renderWizStep(){
+  const box=$("#wizBox");
+  if(wizIdx<0){ box.innerHTML=""; return; }
+  const st=wizSteps[wizIdx];
+  box.innerHTML='<div class="note" style="margin-top:16px"><div class="stepno">Шаг '+(wizIdx+1)+' из '+wizSteps.length+'</div><p class="step">'+esc(st.text)+'</p>'+
+    '<div class="row"><button class="btn" id="wizGo">Готово, замерить</button><button class="btn secondary" id="wizCancel">Прервать</button></div><div id="wizErr"></div></div>';
+  $("#wizGo").addEventListener("click",wizMeasure); $("#wizCancel").addEventListener("click",()=>{ wizIdx=-1; renderWizStep(); });
+}
+async function wizMeasure(){
+  if(busy) return; busy=true; lockButtons(true); $("#wizGo").disabled=true; $("#wizCancel").disabled=true;
+  const st=wizSteps[wizIdx], prog=$("#wizProg");
+  try{
+    if(st.kind==="fr") wiz.data[st.id]=await measureSweep("B",6,prog);
+    else if(st.kind==="lr"){ const l=await measureSweep("L",4,prog), r=await measureSweep("R",4,prog); wiz.data[st.id]={L:bandLevel(l,150,4000),R:bandLevel(r,150,4000),bs:st.bs}; }
+    else wiz.data[st.id]=bandLevel(await measureSweep("B",4,prog),150,4000);
+    wizIdx++;
+    if(wizIdx>=wizSteps.length){ wizIdx=-1; wiz.at=Date.now(); wiz.eng=engineOn(); save("wiz",wiz); renderWizStep(); renderWizResult(); }
+    else renderWizStep();
+  }catch(e){ const el=$("#wizErr"); if(el) el.innerHTML='<p class="status bad">'+esc(String(e&&e.message||e))+'</p>'; if($("#wizGo")){ $("#wizGo").disabled=false; $("#wizCancel").disabled=false; } }
+  finally{ busy=false; lockButtons(false); }
+}
+function wizFit(g){
+  const {cfg,data}=wiz, base=data.base, F=base.map(p=>p[0]);
+  const sens={}; cfg.ctrls.forEach(c=>{ sens[c]=data[c].map((p,i)=>(p[1]-base[i][1])/cfg.max); });
+  const w=F.map(f=>f<30?0:f<45?0.3:f>12000?0.3:1), T=F.map(f=>targetDb(g,f));
+  let best=null; const cur=cfg.ctrls.map(()=>0);
+  const rec=k=>{
+    if(k===cfg.ctrls.length){
+      let sw=0,sr=0; const r=F.map((f,i)=>{ let v=base[i][1]-T[i]; cfg.ctrls.forEach((c,j)=>v+=cur[j]*sens[c][i]); return v; });
+      r.forEach((v,i)=>{ sw+=w[i]; sr+=w[i]*v; }); const m=sr/sw; let e=0; r.forEach((v,i)=>e+=w[i]*(v-m)*(v-m));
+      e+=0.15*cur.reduce((a,v)=>a+v*v,0);
+      if(!best||e<best.e) best={e,x:cur.slice()}; return; }
+    for(let v=-cfg.max;v<=cfg.max;v++){ cur[k]=v; rec(k+1); }
+  };
+  rec(0);
+  const pred=F.map((f,i)=>{ let v=base[i][1]; cfg.ctrls.forEach((c,j)=>v+=best.x[j]*sens[c][i]); return v; });
+  const norm=arr=>{ const pts=F.map((f,i)=>[f,arr[i]]), ref=mean(pts.filter(p=>p[0]>=200&&p[0]<=2000).map(p=>p[1])); return pts.map(p=>[p[0],p[1]-ref]); };
+  const tN=norm(T);
+  return {x:best.x,base:norm(base.map(p=>p[1])),pred:norm(pred),target:tN,sens};
+}
+function renderWizResult(){
+  if(!wiz||!wiz.data||!wiz.data.fadR){ $("#wizOut").innerHTML=""; return; }
+  const g=GENRES.find(x=>x.id===$("#wizGenre").value)||GENRES[0], {cfg,data}=wiz, r=wizFit(g);
+  const sgn=v=>v>0?"+"+v:String(v).replace("-","−");
+  let html='<h2 style="margin-top:18px">Настройки для «'+esc(g.name)+'»</h2><div class="recs">'+
+    cfg.ctrls.map((c,j)=>'<div class="rec"><span>'+CTL_NAME[c]+'</span><b>'+sgn(r.x[j])+'</b></div>').join("");
+  let balTxt="центр", balNote="";
+  const bc=data.balC, br=data.balR, att=(bc.L-br.L)/br.bs, diff=bc.L-bc.R;
+  if(att>0.3){ const n=Math.max(-cfg.max,Math.min(cfg.max,Math.round(diff/att))); balTxt=n===0?"центр":(n>0?"R"+n:"L"+(-n));
+    balNote="На месте водителя левый канал "+(diff>=0?"громче":"тише")+" правого на "+Math.abs(diff).toFixed(1).replace(".",",")+" дБ."+(n!==0?" Баланс "+balTxt+" выровняет их, и звук соберётся по центру.":" Это почти поровну."); }
+  else balNote="Не удалось понять, как работает баланс: при сдвиге громкость почти не изменилась. Оставьте его в центре.";
+  const fd=data.fadF-data.fadR; let fadTxt, fadNote;
+  if(fd<0){ fadTxt="вперёд 3–4"; fadNote="Задние динамики громче передних на "+(-fd).toFixed(0)+" дБ — так звук идёт из-за спины. Сдвиньте фейдер вперёд и проверьте, не перепутаны ли передние и задние провода."; }
+  else if(fd<6){ fadTxt="вперёд 2–3"; fadNote="Передние громче задних всего на "+fd.toFixed(0)+" дБ. Фейдер вперёд соберёт сцену перед водителем, задние будут только подзвучкой."; }
+  else { fadTxt="вперёд 1"; fadNote="Передние уже заметно громче задних (на "+fd.toFixed(0)+" дБ), достаточно сдвинуть фейдер на шаг вперёд."; }
+  if(g.id==="rap"||g.id==="edm") fadNote+=" Для басовой музыки можно оставить ближе к центру: задние добавят плотности.";
+  html+='<div class="rec"><span>Баланс</span><b>'+balTxt+'</b></div><div class="rec"><span>Фейдер</span><b style="font-size:20px">'+fadTxt+'</b></div></div>';
+  html+='<div class="chart">'+drawChart([{pts:r.base,color:"var(--muted)"},{pts:r.target,color:"#4DA3FF",dash:true},{pts:r.pred,color:"var(--accent)"}],{fmin:20,fmax:20000,ymin:-40,label:"До, цель и после"})+'</div>';
+  html+='<ul class="legend"><li><span class="sw" style="background:var(--muted)"></span><span class="nm">Сейчас, всё в нуле</span></li><li><span class="sw" style="background:#4DA3FF"></span><span class="nm">Цель для «'+esc(g.name)+'»</span></li><li><span class="sw" style="background:var(--accent)"></span><span class="nm">Ожидаемо с рекомендованными настройками</span></li></ul>';
+  const tips=[balNote,fadNote], bi=cfg.ctrls.indexOf("bass");
+  if(bi>=0){ const lowGap=mean(r.target.filter(p=>p[0]>=40&&p[0]<=80).map(p=>p[1]))-mean(r.pred.filter(p=>p[0]>=40&&p[0]<=80).map(p=>p[1]));
+    if(r.x[bi]>=cfg.max-1&&lowGap>3) tips.push("Bass почти на максимуме, а баса всё равно не хватает на "+lowGap.toFixed(0)+" дБ. Прибавьте гейн саба на четверть оборота и пройдите мастер заново — так бас будет чище, чем с выкрученным Bass.");
+    if(r.x[bi]<=-3) tips.push("Bass на магнитоле уходит в минус — значит, саб играет слишком громко. Лучше убавить гейн на сабе, а Bass держать около нуля.");
+    const s=r.sens.bass, at=f=>{ let k=0; wiz.data.base.forEach((p,i)=>{ if(Math.abs(Math.log(p[0]/f))<Math.abs(Math.log(wiz.data.base[k][0]/f))) k=i; }); return s[k]*cfg.max; };
+    tips.push("Как работает ваш Bass: на +"+cfg.max+" он поднимает 50 Гц на "+at(50).toFixed(0)+" дБ, 100 Гц на "+at(100).toFixed(0)+" дБ и 300 Гц на "+at(300).toFixed(0)+" дБ.");
+  }
+  tips.push("Это расчёт по замерам, финальное слово за ушами. Включите любимый трек, выставьте эти значения и подкрутите на шаг, если хочется.");
+  html+='<ul class="tips">'+tips.map(t=>"<li>"+t+"</li>").join("")+'</ul><p class="hint">Смените стиль музыки в списке выше — рекомендации пересчитаются без новых замеров.</p>';
+  $("#wizOut").innerHTML=html;
+  if(wiz.at) report("wiz",{s:"info",v:cfg.ctrls.map((c,j)=>CTL_NAME[c]+" "+sgn(r.x[j])).join(", "),d:"Под стиль «"+g.name+"». Баланс "+balTxt+", фейдер "+fadTxt+".",at:wiz.at,eng:wiz.eng!==false});
+}
+
+
+/* ---------- Генератор ---------- */
+let gf=50, genOn=false, genOsc=null, genGain=null, genPan=null, genPulse=null;
+const GMIN=10, GMAX=20000;
+function sliderToF(v){ return GMIN*Math.pow(GMAX/GMIN,v/1000); }
+function fToSlider(f){ return Math.round(Math.log(f/GMIN)/Math.log(GMAX/GMIN)*1000); }
+function fmtF(f){ return f>=1000?(f/1000).toFixed(2).replace(/\.?0+$/,"").replace(".",",")+" к":String(Math.round(f)); }
+function setFreq(f,fromSlider){
+  gf=Math.max(GMIN,Math.min(GMAX,f)); if(gf>=100&&!fromSlider) gf=Math.round(gf);
+  $("#genF").textContent=fmtF(gf); if(!fromSlider) $("#genSlider").value=fToSlider(gf);
+  if(genOsc) genOsc.frequency.setTargetAtTime(gf,getCtx().currentTime,0.015);
+  if(genPulse) restartPulse();
+}
+function genVolume(){ const v=$("#genVol").value/100; return 0.8*v*v; }
+function pulseBuffer(c){ // импульсы с частотой повторения gf, но не чаще 20 в секунду для басовых частот
+  const per=1/Math.max(1,Math.min(gf,20)), n=Math.round(per*c.sampleRate), b=c.createBuffer(1,n,c.sampleRate), d=b.getChannelData(0), fc=Math.max(30,gf), sig=0.2/fc, h=Math.ceil(4*sig*c.sampleRate);
+  for(let m=-h;m<=h;m++){ const t=m/c.sampleRate; d[(m+h)%n]=Math.cos(2*Math.PI*fc*t)*Math.exp(-t*t/(2*sig*sig)); }
+  return b;
+}
+function restartPulse(){ const c=getCtx(); if(genPulse){ try{ genPulse.stop(); }catch(e){} genPulse.disconnect(); }
+  genPulse=c.createBufferSource(); genPulse.buffer=pulseBuffer(c); genPulse.loop=true; genPulse.connect(genGain); genPulse.start(); }
+async function genStart(){
+  const c=await resume(); stopPlay();
+  genGain=c.createGain(); genGain.gain.setValueAtTime(0.0001,c.currentTime); genGain.gain.exponentialRampToValueAtTime(Math.max(0.0002,genVolume()),c.currentTime+0.08);
+  if(c.createStereoPanner){ genPan=c.createStereoPanner(); genPan.pan.value=parseFloat($("#genCh").value); genGain.connect(genPan); genPan.connect(c.destination); }
+  else genGain.connect(c.destination);
+  if($("#genWave").value==="sine"){ genOsc=c.createOscillator(); genOsc.frequency.value=gf; genOsc.connect(genGain); genOsc.start(); }
+  else restartPulse();
+  genOn=true; $("#genBtn").textContent="Выключить тон";
+}
+function genStop(){
+  if(!genGain) return; const c=getCtx(), g=genGain, o=genOsc, p=genPulse;
+  g.gain.setTargetAtTime(0.0001,c.currentTime,0.02);
+  setTimeout(()=>{ try{ o&&o.stop(); }catch(e){} try{ p&&p.stop(); }catch(e){} g.disconnect(); if(genPan) genPan.disconnect(); },150);
+  genOsc=null; genPulse=null; genGain=null; genOn=false; $("#genBtn").textContent="Включить тон";
+}
+let liveTimer=0, hfBase=null;
+function startLive(){ if(liveTimer) return; liveTimer=setInterval(liveTick,150); }
+function liveTick(){
+  if(!analyser||$('[data-pane="gen"]').hidden) return;
+  const c=getCtx(), n=analyser.frequencyBinCount, spec=new Float32Array(n), td=new Float32Array(analyser.fftSize), df=c.sampleRate/analyser.fftSize;
+  analyser.getFloatFrequencyData(spec); analyser.getFloatTimeDomainData(td);
+  let pk=0, sq=0; for(let i=0;i<td.length;i++){ const v=Math.abs(td[i]); if(v>pk) pk=v; sq+=td[i]*td[i]; }
+  const rmsDb=20*Math.log10(Math.sqrt(sq/td.length)+1e-9);
+  const pw=k=>Math.pow(10,spec[k]/10);
+  let hf=0; const ka=Math.round(1500/df), kb=Math.min(n-1,Math.round(8000/df)); for(let k=ka;k<=kb;k++) hf+=pw(k);
+  const hfDb=10*Math.log10(hf+1e-30);
+  $("#lvLevel").textContent=Math.round(rmsDb+100)+" дБ";
+  const st=$("#lvStatus");
+  if(!genOn){ hfBase=hfBase==null?hfDb:0.9*hfBase+0.1*hfDb; $("#lvThd").textContent="—"; $("#lvRat").textContent="—"; $("#lvThdBar").style.width="0";
+    st.className="status"; st.textContent="Тон выключен. Сейчас запоминается фоновый шум салона."; return; }
+  const peakBin=f=>{ const c0=Math.round(f/df), w=Math.max(2,Math.round(f*0.03/df)); let best=-300; for(let k=Math.max(1,c0-w);k<=Math.min(n-1,c0+w);k++) best=Math.max(best,spec[k]); return best; };
+  const sorted=Array.from(spec.slice(Math.round(20/df),Math.round(8000/df))).sort((a,b)=>a-b), floor=sorted[Math.floor(sorted.length/2)];
+  const fund=peakBin(gf); let hsum=0;
+  for(let h=2;h<=6;h++){ const fh=gf*h; if(fh>c.sampleRate/2.2) break; const lv=peakBin(fh); if(lv>floor+10) hsum+=Math.pow(10,lv/10); }
+  const heard=fund>floor+15, thd=heard&&$("#genWave").value==="sine"?100*Math.sqrt(hsum/Math.pow(10,fund/10)):null;
+  const rat=hfBase==null?0:hfDb-hfBase;
+  $("#lvThd").textContent=thd==null?"—":thd.toFixed(thd<10?1:0).replace(".",",")+"%";
+  const bar=$("#lvThdBar"); bar.style.width=thd==null?"0":Math.min(100,thd*5)+"%"; bar.style.background=thd==null?"var(--ok)":thd<3?"var(--ok)":thd<10?"var(--warn)":"var(--bad)";
+  $("#lvRat").textContent=rat>=10?"есть":rat>=5?"слабый":"нет";
+  $("#lvRat").style.color=rat>=10?"var(--bad)":rat>=5?"var(--warn)":"var(--ok)";
+  if(pk>0.97){ st.className="status bad"; st.textContent="Микрофон перегружен — отодвиньте телефон или убавьте громкость, иначе цифры врут."; }
+  else if(!heard){ st.className="status"; st.textContent=gf<40?"Микрофон iPhone почти не слышит такие низкие частоты — оценивайте на слух.":"Тон почти не слышно. Прибавьте громкость."; }
+  else if(thd!=null&&thd>=10){ st.className="status bad"; st.textContent="Перегруз: саб хрипит на "+fmtF(gf)+" Гц. Убавьте громкость или гейн."; }
+  else if(rat>=10){ st.className="status bad"; st.textContent="Что-то дребезжит на "+fmtF(gf)+" Гц. Ищите на слух: обшивка, полка, номер."; }
+  else if(thd!=null&&thd>=3){ st.className="status"; st.style.color="var(--warn)"; st.textContent="Искажения заметны — это близко к пределу."; return; }
+  else { st.className="status ok"; st.textContent="Чисто: без перегруза и звона."; }
+  st.style.color="";
+}
+
+/* ---------- Общие инструменты новых замеров ---------- */
+function engineOn(){ const e=$("#engine"); return !e||e.checked; }
+function durMul(){ return engineOn()?1.5:1; }
+function ifft(re,im){ const n=re.length; for(let i=0;i<n;i++) im[i]=-im[i]; fft(re,im); for(let i=0;i<n;i++){ re[i]/=n; im[i]=-im[i]/n; } }
+function sweepGen(sr,T,amp,f1,f2){
+  f1=f1||20; f2=f2||Math.min(20000,sr/2*0.9);
+  const n=Math.round(T*sr), K=T/Math.log(f2/f1), nf=Math.round(0.05*sr), sw=new Float32Array(n);
+  for(let i=0;i<n;i++){ const t=i/sr; let g=1; if(i<nf) g=0.5-0.5*Math.cos(Math.PI*i/nf); else if(i>n-nf) g=0.5-0.5*Math.cos(Math.PI*(n-i)/nf);
+    sw[i]=amp*g*Math.sin(2*Math.PI*f1*K*(Math.exp(t/K)-1)); }
+  return sw;
+}
+function edge(x){ return x>=0.5?1:x<=0?0:0.5-0.5*Math.cos(Math.PI*x/0.5); }
+function bandMask(f,lo,hi){ if(f<=0) return 0; return edge(Math.log2(f/lo))*edge(Math.log2(hi/f)); }
+function octMask(f,fc){ if(f<=0) return 0; const v=Math.abs(Math.log2(f/fc)); return v<=0.5?1:v>=1?0:0.5+0.5*Math.cos(Math.PI*(v-0.5)/0.5); }
+function impulse(x,sw,sr,lo,hi){
+  const N=nextPow2(x.length+sw.length), xr=new Float64Array(N), xi=new Float64Array(N), yr=new Float64Array(N), yi=new Float64Array(N);
+  for(let i=0;i<sw.length;i++) xr[i]=sw[i]; fft(xr,xi);
+  for(let i=0;i<x.length;i++) yr[i]=x[i]; fft(yr,yi);
+  let mx=0; for(let k=0;k<=N/2;k++) mx=Math.max(mx,xr[k]*xr[k]+xi[k]*xi[k]);
+  const reg=1e-6*mx, df=sr/N;
+  for(let k=0;k<=N/2;k++){
+    const d=xr[k]*xr[k]+xi[k]*xi[k]+reg, m=bandMask(k*df,lo,hi);
+    const hr=(yr[k]*xr[k]+yi[k]*xi[k])/d*m, hm=(yi[k]*xr[k]-yr[k]*xi[k])/d*m;
+    yr[k]=hr; yi[k]=hm; if(k>0&&k<N/2){ yr[N-k]=hr; yi[N-k]=-hm; }
+  }
+  ifft(yr,yi); return yr;
+}
+function argmaxAbs(h,a,b){ a=Math.max(0,a|0); b=Math.min(h.length,b|0); let k=a,m=-1; for(let i=a;i<b;i++){ const v=Math.abs(h[i]); if(v>m){ m=v; k=i; } } return {k,m:Math.max(0,m)}; }
+async function twoChannelIR(T,prog,lo,hi){
+  const c=await resume(), sr=c.sampleRate, sw=sweepGen(sr,T,0.5), D=Math.round((T+0.7)*sr), n=D+sw.length;
+  const L=new Float32Array(n), R=new Float32Array(n); L.set(sw,0); R.set(sw,D);
+  const {x,lead}=await playAndRecord(L,R,prog);
+  let pk=0; for(let i=0;i<x.length;i++) pk=Math.max(pk,Math.abs(x[i]));
+  if(pk<0.003) throw new Error("Микрофон почти не слышит сигнал. Прибавьте громкость и проверьте AUX.");
+  const h=impulse(x,sw,sr,lo||20,hi||Math.min(20000,sr/2*0.9));
+  const g=argmaxAbs(h,0,x.length), w=Math.round(0.06*sr), isL=g.k/sr < lead+D/sr/2;
+  const o=isL?argmaxAbs(h,g.k+D-w,g.k+D+w):argmaxAbs(h,g.k-D-w,g.k-D+w);
+  return {h,sr,D,pL:isL?g.k:o.k,pR:isL?o.k:g.k,mL:isL?g.m:o.m,mR:isL?o.m:g.m,clip:pk>0.97};
+}
+function frFromIR(h,p,sr,post){
+  const pre=Math.round(0.003*sr), len=pre+Math.round((post||0.1)*sr), N=nextPow2(Math.max(len,16384)), re=new Float64Array(N), im=new Float64Array(N);
+  for(let i=0;i<len;i++){ const t=i<pre?0.5-0.5*Math.cos(Math.PI*i/pre):(i>len*0.8?0.5+0.5*Math.cos(Math.PI*(i-len*0.8)/(len*0.2)):1); re[i]=(h[p-pre+i]||0)*t; }
+  fft(re,im); const df=sr/N, pts=[];
+  for(let f=40;f<=Math.min(16000,sr/2*0.9);f*=Math.pow(2,1/12)){
+    const a=Math.max(1,Math.floor(f/Math.pow(2,1/12)/df)), b=Math.max(a,Math.ceil(f*Math.pow(2,1/12)/df)); let s=0;
+    for(let k=a;k<=b;k++) s+=re[k]*re[k]+im[k]*im[k];
+    pts.push([Math.round(f*10)/10,Math.round(10*Math.log10(s/(b-a+1)+1e-30)*10)/10]);
+  }
+  return pts;
+}
+function ltas(x,sr,nfft){
+  nfft=nfft||8192; const hop=nfft/2, win=new Float64Array(nfft); let sw2=0;
+  for(let i=0;i<nfft;i++){ win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(nfft-1)); sw2+=win[i]*win[i]; }
+  const frames=Math.max(0,Math.floor((x.length-nfft)/hop)+1), stride=Math.max(1,Math.ceil(frames/400)), P=new Float64Array(nfft/2+1);
+  const re=new Float64Array(nfft), im=new Float64Array(nfft); let cnt=0;
+  for(let f=0;f<frames;f+=stride){ const o=f*hop; for(let i=0;i<nfft;i++){ re[i]=x[o+i]*win[i]; im[i]=0; } fft(re,im); for(let k=0;k<=nfft/2;k++) P[k]+=re[k]*re[k]+im[k]*im[k]; cnt++; }
+  const sc=2/(nfft*sw2*Math.max(1,cnt)); for(let k=0;k<P.length;k++) P[k]*=sc;
+  return {P,df:sr/nfft,sr};
+}
+function ltasPts(L){
+  const pts=[], top=Math.min(20000,L.sr/2*0.98);
+  for(let f=20;f<=top;f*=Math.pow(2,1/12)){
+    const a=Math.max(1,Math.floor(f/Math.pow(2,1/24)/L.df)), b=Math.min(L.P.length-1,Math.max(a,Math.ceil(f*Math.pow(2,1/24)/L.df))); let s=0;
+    for(let k=a;k<=b;k++) s+=L.P[k];
+    pts.push([Math.round(f*10)/10,10*Math.log10(s/(b-a+1)+1e-30)]);
+  }
+  return pts;
+}
+const THIRDS=[25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000];
+function thirdOct(L){ const out=[]; THIRDS.forEach(fc=>{ const a=Math.max(1,Math.floor(fc/Math.pow(2,1/6)/L.df)), b=Math.min(L.P.length-1,Math.ceil(fc*Math.pow(2,1/6)/L.df)); if(b<a) return; let s=0; for(let k=a;k<=b;k++) s+=L.P[k]; out.push([fc,10*Math.log10(s+1e-30)]); }); return out; }
+function aW(f){ const f2=f*f, ra=(12194*12194*f2*f2)/((f2+20.6*20.6)*Math.sqrt((f2+107.7*107.7)*(f2+737.9*737.9))*(f2+12194*12194)); return 20*Math.log10(ra)+2.0; }
+function totalA(bands){ return Math.round(10*Math.log10(bands.reduce((s,b)=>s+Math.pow(10,(b[1]+aW(b[0]))/10),0)+1e-30)*10)/10; }
+function sumBands(bands,a,b){ return 10*Math.log10(bands.filter(p=>p[0]>=a&&p[0]<b).reduce((s,p)=>s+Math.pow(10,p[1]/10),0)+1e-30); }
+async function recordSilence(sec,prog){ const c=await resume(), n=Math.round(sec*c.sampleRate), z=new Float32Array(n); const {x}=await playAndRecord(z,z,prog); return {x:x.subarray(Math.round(0.35*c.sampleRate)),sr:c.sampleRate}; }
+const nf1=v=>v.toFixed(1).replace(".",",");
+const errHTML=e=>'<p class="status bad">'+esc(String(e&&e.message||e))+'</p>';
+
+/* ---------- Эталоны ---------- */
+const TARGETS={
+  studio:{name:"Студийный эталон (ровно)",color:"var(--text)",dash:"3 6",fn:f=>0},
+  harman:{name:"Harman для машины",color:"#E0559A",dash:"10 6",fn:f=>10/(1+Math.pow(f/105,4))+(f>1000?-1.2*Math.log2(f/1000):0)}
+};
+let tOn=load("tOn",{studio:true,harman:true});
+function fgrid(){ const a=[]; for(let f=20;f<=20000;f*=Math.pow(2,1/12)) a.push(Math.round(f*10)/10); return a; }
+function targetPts(key,freqs){ const t=TARGETS[key].fn, v=freqs.map(f=>[f,t(f)]), ref=mean(v.filter(p=>p[0]>=200&&p[0]<=2000).map(p=>p[1])); return v.map(p=>[p[0],Math.round((p[1]-ref)*10)/10]); }
+function targetSeries(){ return Object.keys(TARGETS).filter(k=>tOn[k]).map(k=>({pts:targetPts(k,fgrid()),color:TARGETS[k].color,dash:TARGETS[k].dash})); }
+function targetLegend(){ return Object.keys(TARGETS).map(k=>'<li><input type="checkbox" data-t="'+k+'"'+(tOn[k]?" checked":"")+' aria-label="Показать '+TARGETS[k].name+'"><span class="dsw" style="border-color:'+TARGETS[k].color+'"></span><span class="nm">'+TARGETS[k].name+'</span></li>').join(""); }
+function bindTargetLegend(ul,rerender){ ul.querySelectorAll("[data-t]").forEach(el=>el.addEventListener("change",()=>{ tOn[el.dataset.t]=el.checked; save("tOn",tOn); rerender(); })); }
+function smoothPts(pts,oct){ oct=oct||1/3; return pts.map(p=>{ const v=pts.filter(q=>Math.abs(Math.log2(q[0]/p[0]))<=oct/2).map(q=>q[1]); return [p[0],mean(v)]; }); }
+function normPts(pts){ const ref=mean(pts.filter(p=>p[0]>=200&&p[0]<=2000).map(p=>p[1])); return pts.map(p=>[p[0],Math.round((p[1]-ref)*10)/10]); }
+function scoreVs(pts,key){
+  const sm=smoothPts(pts).filter(p=>p[0]>=50&&p[0]<=12000); if(sm.length<10) return null;
+  const t=TARGETS[key].fn, tr=mean(fgrid().filter(f=>f>=200&&f<=2000).map(t));
+  const d=sm.map(p=>p[1]-(t(p[0])-tr)), m=mean(d), rms=Math.sqrt(mean(d.map(v=>(v-m)*(v-m))));
+  const dev=[]; THIRDS.filter(f=>f>=63&&f<=10000).forEach(fc=>{ const v=sm.map((p,i)=>[p[0],d[i]-m]).filter(p=>Math.abs(Math.log2(p[0]/fc))<=1/6).map(p=>p[1]); if(v.length) dev.push({f:fc,d:mean(v)}); });
+  return {score:Math.max(0,Math.min(100,Math.round(100-7*(rms-1)))),rms,dev};
+}
+function devText(dev,word){
+  word=word||"эталона"; const out=[];
+  dev.slice().sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).forEach(x=>{ if(Math.abs(x.d)<5||out.length>=3) return; if(out.some(o=>Math.abs(Math.log2(o.f/x.f))<1)) return; out.push(x); });
+  return out.map(x=>{ const z=x.f<120?"бас":x.f<400?"верхний бас":x.f<2000?"середина":x.f<6000?"верхняя середина":"верха";
+    return fmtHz(x.f)+" ("+z+"): "+(x.d>0?"громче "+word+" на "+x.d.toFixed(0)+" дБ":"тише "+word+" на "+(-x.d).toFixed(0)+" дБ")+(x.d>0&&x.f<400?" — бубнит":x.d<0&&x.f>4000?" — звук глуховат":x.d>0&&x.f>2000?" — может резать слух":x.d<0&&x.f<120?" — баса не хватает":""); });
+}
+function scoreColor(v){ return v>=75?"var(--ok)":v>=55?"var(--warn)":"var(--bad)"; }
+function scoreBlock(pts,o){
+  o=o||{}; const a=scoreVs(pts,"studio"), b=scoreVs(pts,"harman"); if(!a||!b) return "";
+  let h='<div class="recs"><div class="rec"><span>'+(o.studio||"Студийный эталон")+'</span><b style="color:'+scoreColor(a.score)+'">'+a.score+'</b><span>из 100</span></div><div class="rec"><span>Harman для машины</span><b style="color:'+scoreColor(b.score)+'">'+b.score+'</b><span>из 100</span></div></div>';
+  const tips=[];
+  if(o.word){ const t=devText(a.dev,o.word); tips.push(...(t.length?t:["Сильных отличий от оригинала нет — система передаёт трек честно."])); }
+  const t=devText(b.dev); tips.push(...(t.length?t.map(x=>"Относительно Harman: "+x):["Сильных отклонений от кривой Harman нет — звучание сбалансированное."]));
+  return h+'<ul class="tips">'+tips.map(x=>"<li>"+x+"</li>").join("")+'</ul>';
+}
+
+/* ---------- Общий отчёт ---------- */
+const REP=[["lr","Левый и правый в фазе","lr"],["sub","Фаза саба","sub"],["spk4","Все 4 динамика","spk4"],["one","Полярность динамиков","one"],["fr","АЧХ и эталон","fr"],["music","Сравнение на музыке","music"],["dist","Перегруз саба","dist"],["rattle","Дребезг","dist"],["maxvol","Предел громкости магнитолы","wiz"],["wiz","Настройки магнитолы","wiz"],["decay","Гулкость салона","decay"],["delay","Задержка левый/правый","delay"],["noise","Шум и наводки","noise"],["iso","Шумоизоляция","iso"]];
+let rep=load("report",{});
+function report(key,o){ rep[key]={s:o.s,v:o.v,d:o.d||"",n:o.n==null?null:o.n,at:o.at||Date.now(),eng:o.eng==null?engineOn():o.eng}; save("report",rep); if(!$('[data-pane="report"]').hidden) renderReport(); }
+function repFromHTML(key,html,extra,vmap){
+  const k=/class="verdict (\w+)"/.exec(html), t=/<b>(.*?)<\/b>/.exec(html); if(!k||!t) return;
+  const title=t[1].replace(/<[^>]+>/g,""); if(/Слишком тихо|Не удалось/.test(title)) return;
+  const rest=html.slice(html.indexOf("</b>")+4); const txt=rest.slice(0,rest.indexOf("</div>")).replace(/<[^>]+>/g,"");
+  report(key,{s:k[1],v:vmap&&vmap[k[1]]?vmap[k[1]]:title,d:extra||txt});
+}
+function oneSummary(){
+  const valid=oneRes.filter(r=>r.sign!==0); if(valid.length<2&&micSign==null) return; let bad=0;
+  valid.forEach(r=>{ const ref=micSign!=null?micSign:oneRes.find(q=>q.key===r.key&&q.sign!==0).sign; if(r.sign!==ref) bad++; });
+  report("one",{s:bad?"bad":"ok",v:bad?bad+" из "+valid.length+" наоборот":"все "+valid.length+" совпадают",d:bad?"Есть динамики с перепутанными плюсом и минусом — смотрите таблицу во вкладке «Один динамик».":"Полярность проверенных динамиков совпадает."+(micSign==null?" Калибровки батарейкой нет, сравнение относительное.":"")});
+}
+function repTotal(){ const pts={ok:100,warn:60,bad:25}, sc=REP.map(r=>rep[r[0]]).filter(e=>e&&e.s!=="info"); return sc.length?Math.round(mean(sc.map(e=>e.n!=null?e.n:pts[e.s]))):null; }
+function renderReport(){
+  const box=$("#repOut"); if(!box) return;
+  const done=REP.filter(r=>rep[r[0]]), total=repTotal();
+  const col=s=>s==="ok"?"var(--ok)":s==="bad"?"var(--bad)":s==="warn"?"var(--warn)":"var(--muted)";
+  const sign=s=>s==="ok"?"✓":s==="bad"?"!":s==="warn"?"~":"i";
+  const when=t=>{ const d=new Date(t); return d.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})+", "+d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}); };
+  let h='<div class="score"><div class="big" style="color:'+(total==null?"var(--muted)":scoreColor(total))+'">'+(total==null?"—":total)+'</div><div><b>'+(total==null?"Пока нет замеров":total>=75?"Система в хорошем состоянии":total>=55?"Есть что подправить":"Есть серьёзные проблемы")+'</b><p class="hint" style="margin:4px 0 0">Проверено '+done.length+' из '+REP.length+'. Оценка из 100 — среднее по проверкам с вердиктом.</p></div></div>';
+  if(done.length) h+='<ul class="replist">'+done.map(r=>{ const e=rep[r[0]]; return '<li><span class="rs" style="color:'+col(e.s)+';border-color:'+col(e.s)+'">'+sign(e.s)+'</span><div class="rb"><div class="rt"><span>'+r[1]+'</span><b>'+esc(e.v)+'</b></div>'+(e.d?'<p>'+esc(e.d)+'</p>':'')+'<small>'+when(e.at)+(e.eng?", двигатель заведён":", двигатель заглушен")+'</small></div></li>'; }).join("")+'</ul>';
+  const todo=REP.filter(r=>!rep[r[0]]);
+  if(todo.length) h+='<h2 style="margin-top:18px">Ещё не проверено</h2><div class="chips">'+todo.map(r=>'<button class="mini" data-go="'+r[2]+'">'+r[1]+'</button>').join("")+'</div>';
+  box.innerHTML=h;
+  box.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.go,true)));
+}
+function reportText(){
+  const t=repTotal(), lines=["Проверка автозвука, "+new Date().toLocaleDateString("ru-RU"),"Оценка: "+(t==null?"—":t+" из 100"),""];
+  REP.forEach(r=>{ const e=rep[r[0]]; if(e) lines.push((e.s==="ok"?"✓":e.s==="bad"?"✗":e.s==="warn"?"~":"•")+" "+r[1]+": "+e.v+(e.d?". "+e.d:"")); });
+  return lines.join("\n");
+}
+function copyReport(){
+  const text=reportText(), btn=$("#repCopy"), done=()=>{ btn.textContent="Скопировано"; setTimeout(()=>btn.textContent="Скопировать текстом",2000); };
+  const fallback=()=>{ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch(e){} ta.remove(); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done,fallback); else fallback();
+}
+
+/* ---------- 4 динамика ---------- */
+let spk=load("spk",null), spkStep=-1;
+function spkSteps(rear){ const s=[{id:"front",text:"Саб выключите или уберите гейн в ноль. Баланс в центр, фейдер полностью вперёд."}]; if(rear) s.push({id:"rear",text:"Теперь фейдер полностью назад."}); return s; }
+function spkStart(){ spk={rear:$("#spkRear").checked,data:{}}; spkStep=0; $("#spkOut").innerHTML=""; renderSpkStep(); }
+function renderSpkStep(){
+  const box=$("#spkBox"); if(spkStep<0){ box.innerHTML=""; return; }
+  const steps=spkSteps(spk.rear), st=steps[spkStep];
+  box.innerHTML='<div class="note" style="margin-top:16px"><div class="stepno">Шаг '+(spkStep+1)+' из '+steps.length+'</div><p class="step">'+esc(st.text)+'</p><div class="row"><button class="btn" id="spkGo">Готово, замерить</button><button class="btn secondary" id="spkCancel">Прервать</button></div><div id="spkErr"></div></div>';
+  $("#spkGo").addEventListener("click",spkMeasure); $("#spkCancel").addEventListener("click",()=>{ spkStep=-1; renderSpkStep(); });
+}
+async function spkMeasure(){
+  if(busy) return; busy=true; lockButtons(true); $("#spkGo").disabled=true; $("#spkCancel").disabled=true;
+  const steps=spkSteps(spk.rear), st=steps[spkStep];
+  try{
+    const r=await twoChannelIR(4*durMul(),$("#spkProg"));
+    const one=p=>{ const pts=frFromIR(r.h,p,r.sr,0.08); return {pts,low:bandLevel(pts,80,250),mid:bandLevel(pts,250,3000),high:bandLevel(pts,3000,12000)}; };
+    spk.data[st.id]={L:one(r.pL),R:one(r.pR),clip:r.clip};
+    spkStep++;
+    if(spkStep>=steps.length){ spkStep=-1; spk.at=Date.now(); spk.eng=engineOn(); save("spk",spk); renderSpkStep(); renderSpk(true); } else renderSpkStep();
+  }catch(e){ const el=$("#spkErr"); if(el) el.innerHTML=errHTML(e); if($("#spkGo")){ $("#spkGo").disabled=false; $("#spkCancel").disabled=false; } }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderSpk(fromRun){
+  const out=$("#spkOut"); if(!spk||!spk.data||!spk.data.front||(spk.rear&&!spk.data.rear)){ out.innerHTML=""; return; }
+  const list=[["front","L","Передний левый"],["front","R","Передний правый"]]; if(spk.rear) list.push(["rear","L","Задний левый"],["rear","R","Задний правый"]);
+  const S=list.map(([pos,ch,name])=>Object.assign({pos,ch,name,issues:[]},spk.data[pos][ch])), ref=Math.max(...S.map(q=>q.mid));
+  S.forEach(q=>{ if(q.mid<ref-15){ q.dead=true; q.issues.push("почти не играет — проверьте провод, разъём и сам динамик"); } });
+  S.forEach(q=>{ if(q.dead) return; const mate=S.find(z=>z.pos===q.pos&&z.ch!==q.ch); if(!mate||mate.dead) return;
+    if(q.mid<mate.mid-6) q.issues.push("тише соседа на "+(mate.mid-q.mid).toFixed(0)+" дБ");
+    if((q.high-q.mid)<(mate.high-mate.mid)-8){ q.tw=true; q.issues.push("мало верхов — похоже, не работает пищалка"); }
+    if((q.low-q.mid)<(mate.low-mate.mid)-8) q.issues.push("мало низа — мидбас слабый или повреждён"); });
+  let fadWarn="";
+  if(spk.rear){ const f=spk.data.front, r=spk.data.rear; if(Math.abs((f.L.mid+f.R.mid)/2-(r.L.mid+r.R.mid)/2)<2&&Math.abs((f.L.high+f.R.high)/2-(r.L.high+r.R.high)/2)<2) fadWarn="При переключении фейдера звук почти не изменился. Возможно, фейдер не глушит динамики полностью или задних динамиков нет — тогда результат по задним неточный."; }
+  const bad=S.filter(q=>q.dead||q.tw), warn=S.filter(q=>q.issues.length&&!q.dead&&!q.tw);
+  let h, s, v;
+  if(bad.length){ s="bad"; v=bad.map(q=>q.name.toLowerCase()).join(", "); h=verdictHTML("bad","!","Есть неисправный динамик",bad.map(q=>q.name+": "+q.issues[0]).join(". ")+"."); }
+  else if(warn.length){ s="warn"; v="есть разница"; h=verdictHTML("warn","~","Все играют, но не одинаково",warn.map(q=>q.name+": "+q.issues.join(", ")).join(". ")+"."); }
+  else { s="ok"; v="все "+S.length+" в порядке"; h=verdictHTML("ok","✓","Все динамики играют","Ни один не молчит, пищалки и мидбасы на месте, пары звучат одинаково."); }
+  if(fadWarn) h+='<p class="note">'+fadWarn+'</p>';
+  const rel=x=>fmt(x-ref,0);
+  h+='<div class="table-wrap"><table><thead><tr><th>Динамик</th><th>Низ</th><th>Середина</th><th>Верх</th><th>Вывод</th></tr></thead><tbody>'+
+    S.map(q=>'<tr><td>'+q.name+'</td><td class="num">'+rel(q.low)+'</td><td class="num">'+rel(q.mid)+'</td><td class="num">'+rel(q.high)+'</td><td class="'+(q.dead||q.tw?"badc":q.issues.length?"":"good")+'">'+(q.issues.length?q.issues.join("; "):"норма")+'</td></tr>').join("")+
+    '</tbody></table></div><p class="hint" style="margin-top:8px">Уровни в дБ относительно самого громкого динамика: низ 80–250 Гц, середина 250–3000 Гц, верх 3–12 кГц.</p>';
+  const cols=["var(--accent)","#4DA3FF","#B07CFF","#5BD69B"];
+  h+='<div class="chart">'+drawChart(S.map((q,i)=>({pts:smoothPts(q.pts,1/6).map(p=>[p[0],p[1]-ref]),color:cols[i]})),{fmin:40,fmax:16000,ymin:-40,label:"АЧХ каждого динамика"})+'</div>';
+  h+='<ul class="legend">'+S.map((q,i)=>'<li><span class="sw" style="background:'+cols[i]+'"></span><span class="nm">'+q.name+'</span></li>').join("")+'</ul>';
+  out.innerHTML=h;
+  if(fromRun) report("spk4",{s,v,d:(bad.length?bad:warn).map(q=>q.name+": "+q.issues.join(", ")).join(". ")||"Все играют одинаково.",at:spk.at,eng:spk.eng});
+}
+
+/* ---------- Своя музыка ---------- */
+let mBuf=null, mName="", mRes=load("music",[]), mPrev=null;
+const fmtTime=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+function updStart(){ $("#mStartTxt").textContent=fmtTime(+$("#mStart").value); }
+async function onFile(e){
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  $("#mInfo").innerHTML='<p class="hint" style="margin-top:10px">Читаю и анализирую файл…</p>';
+  try{
+    const c=getCtx(), ab=await f.arrayBuffer();
+    mBuf=await new Promise((res,rej)=>{ const p=c.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); });
+    mName=f.name.replace(/\.[^.]+$/,"");
+    const dur=mBuf.duration, st=$("#mStart"); st.max=String(Math.max(0,Math.floor(dur-15))); st.value=String(Math.min(Math.floor(dur*0.35),Math.max(0,Math.floor(dur-30)))); updStart();
+    $("#mCtl").hidden=false; lockButtons(busy);
+    await sleep(30);
+    $("#mInfo").innerHTML=fileReport(mBuf);
+  }catch(err){ mBuf=null; $("#mInfo").innerHTML='<p class="status bad">Не удалось прочитать файл. Подойдут MP3, M4A/AAC и WAV.</p>'; }
+}
+function fileReport(buf){
+  const sr=buf.sampleRate, L=buf.getChannelData(0), R=buf.numberOfChannels>1?buf.getChannelData(1):L, n=buf.length;
+  const len=Math.min(n,Math.round(90*sr)), off=Math.max(0,Math.floor((n-len)/2)), mono=new Float32Array(len);
+  let pk=0,sq=0,sl=0,sr2=0,slr=0,clip=0,run=0;
+  for(let i=0;i<len;i++){ const a=L[off+i], b=R[off+i]; mono[i]=(a+b)/2; const m=Math.max(Math.abs(a),Math.abs(b)); if(m>pk) pk=m; sq+=mono[i]*mono[i]; sl+=a*a; sr2+=b*b; slr+=a*b; if(m>=0.999){ run++; if(run===3) clip++; } else run=0; }
+  const crest=20*Math.log10(pk+1e-12)-10*Math.log10(sq/len+1e-20), clipMin=clip/(len/sr/60), corr=slr/Math.sqrt(sl*sr2+1e-30);
+  const pts=ltasPts(ltas(mono,sr,8192)), ref=bandLevel(pts,200,2000);
+  let cliff=0, cutoff=null; pts.forEach(p=>{ if(p[0]<11000||p[0]>19500) return; const q=pts.find(z=>z[0]>=p[0]*1.08); if(!q) return; const dd=p[1]-q[1]; if(dd>cliff){ cliff=dd; cutoff=p[0]; } });
+  if(cliff<18) cutoff=null;
+  const sub=bandLevel(pts,25,60)-ref, it=[];
+  it.push(["Качество сжатия",...(cutoff==null?["ok","высокое","Частоты идут до самого верха — файл без потерь или в максимальном качестве."]:cutoff<15000?["bad","низкое","Верх обрезан на "+fmtHz(cutoff)+". Так режет MP3 128 кбит/с и хуже — тарелкам не хватит «воздуха»."]:cutoff<17500?["warn","среднее","Верх обрезан на "+fmtHz(cutoff)+" — похоже на MP3 128–192 кбит/с."]:["ok","хорошее","Срез на "+fmtHz(cutoff)+" — MP3 или AAC 256–320 кбит/с. В машине на слух не отличить от оригинала."])]);
+  it.push(["Динамика",...(crest<8?["warn","пережат","Пики всего на "+crest.toFixed(0)+" дБ выше среднего уровня. Трек сильно сжат по громкости: звучит громко, но плоско и утомляет."]:crest<12?["ok","как у современной музыки","Пики на "+crest.toFixed(0)+" дБ выше среднего — обычная громкая современная сводка."]:["ok","живая","Пики на "+crest.toFixed(0)+" дБ выше среднего — хорошая динамика, удары звучат упруго."])]);
+  it.push(["Клиппинг в файле",...(clipMin>30?["warn","есть","Около "+Math.round(clipMin)+" срезанных пиков в минуту. Хрип на громких местах заложен в самом треке — система не виновата."]:clipMin>3?["ok","немного","Несколько срезанных пиков, на слух почти не заметно."]:["ok","нет","Пики не срезаны."])]);
+  it.push(["Стерео",...(corr>0.97?["info","почти моно","Левый и правый канал почти одинаковые — для проверки баланса и сцены трек не подойдёт."]:corr<0.2?["warn","очень широкое","Каналы слабо связаны — в машине такой трек может звучать «дырявым» по центру."]:["ok","нормальное","Обычная стереокартина."])]);
+  it.push(["Саб-бас 25–60 Гц",...(sub>-6?["ok","много","Хороший трек для проверки саба."]:sub>-15?["ok","средне","Саб в треке есть, но не главный."]:["info","мало","Для проверки саба лучше взять другой трек."])]);
+  const col=x=>x==="ok"?"var(--ok)":x==="bad"?"var(--bad)":x==="warn"?"var(--warn)":"var(--muted)", sign=x=>x==="ok"?"✓":x==="bad"?"!":x==="warn"?"~":"i";
+  const good=cutoff==null||cutoff>=17500, refTrack=good&&crest>=8&&clipMin<=30;
+  return '<h2 style="margin-top:16px">Файл «'+esc(mName)+'»</h2><p class="hint">'+fmtTime(buf.duration)+'. '+(refTrack?"Годится как эталонный трек для проверки системы.":"Как эталон для проверки системы — так себе, но сравнить всё равно можно.")+'</p><ul class="replist">'+
+    it.map(x=>'<li><span class="rs" style="color:'+col(x[1])+';border-color:'+col(x[1])+'">'+sign(x[1])+'</span><div class="rb"><div class="rt"><span>'+x[0]+'</span><b>'+x[2]+'</b></div><p>'+x[3]+'</p></div></li>').join("")+'</ul>';
+}
+function segArrays(){
+  const st=+$("#mStart").value, ln=+$("#mLen").value, a=Math.round(st*mBuf.sampleRate), n=Math.max(1,Math.min(mBuf.length-a,Math.round(ln*mBuf.sampleRate)));
+  const L=mBuf.getChannelData(0).slice(a,a+n), R=(mBuf.numberOfChannels>1?mBuf.getChannelData(1):mBuf.getChannelData(0)).slice(a,a+n), fd=Math.min(n>>1,Math.round(0.05*mBuf.sampleRate));
+  for(let i=0;i<fd;i++){ const g=i/fd; L[i]*=g; R[i]*=g; L[n-1-i]*=g; R[n-1-i]*=g; }
+  return {L,R,st};
+}
+function stopPreview(){ if(mPrev){ const p=mPrev; mPrev=null; try{ p.stop(); }catch(e){} } $("#mPreview").textContent="Прослушать фрагмент"; }
+async function previewMusic(){
+  if(mPrev){ stopPreview(); return; } if(!mBuf) return;
+  const c=await resume(); genStop(); stopPlay();
+  const s=c.createBufferSource(); s.buffer=mBuf; s.connect(c.destination); s.start(0,+$("#mStart").value,+$("#mLen").value);
+  mPrev=s; $("#mPreview").textContent="Остановить"; s.onended=()=>{ if(mPrev===s) stopPreview(); };
+}
+async function runExact(L,R,name,st,prog){
+  if(busy) return; stopPreview(); busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, n=L.length;
+    $("#mOut").innerHTML='<p class="hint" style="margin-top:12px">Играю и записываю, около '+Math.round(n/sr+1)+' секунд…</p>';
+    const {x,lead}=await playAndRecord(L,R,prog);
+    let pk=0; for(let i=0;i<x.length;i++) pk=Math.max(pk,Math.abs(x[i]));
+    if(pk<0.003) throw new Error("Микрофон почти не слышит музыку. Прибавьте громкость.");
+    const on=findOnset(x,sr), s0=Math.round((on!=null?on:lead)*sr), rec=x.subarray(s0,Math.min(x.length,s0+n)), src=new Float32Array(n);
+    for(let i=0;i<n;i++) src[i]=(L[i]+R[i])/2;
+    const ps=ltasPts(ltas(src,sr,8192)), pr=ltasPts(ltas(rec,sr,8192)), smax=Math.max(...ps.map(p=>p[1]));
+    let pts=[]; ps.forEach((p,i)=>{ if(pr[i]&&p[1]>smax-55&&p[0]>=25) pts.push([p[0],pr[i][1]-p[1]]); });
+    pts=normPts(smoothPts(pts,1/6));
+    mRes.forEach(r=>r.on=false); if(mRes.length) mRes[mRes.length-1].on=true;
+    mRes.push({label:name+(st!=null?", с "+fmtTime(st):""),pts,on:true,color:PALETTE[mRes.length%PALETTE.length],at:Date.now(),eng:engineOn(),clip:pk>0.97});
+    if(mRes.length>6) mRes.shift(); save("music",mRes); renderMusic();
+    const a=scoreVs(pts,"studio"), b=scoreVs(pts,"harman");
+    if(a&&b) report("music",{s:b.score>=75?"ok":b.score>=55?"warn":"bad",n:b.score,v:"похожесть "+a.score+", Harman "+b.score,d:(st!=null?"Трек «"+name+"». ":"Встроенный трек. ")+(devText(a.dev,"оригинала")[0]||"Сильных отличий от оригинала нет.")});
+  }catch(e){ $("#mOut").innerHTML=errHTML(e); }
+  finally{ busy=false; lockButtons(false); }
+}
+async function runMusic(){ if(!mBuf||busy) return; const {L,R,st}=segArrays(); await runExact(L,R,mName,st,$("#mProg")); }
+let refBuf=null;
+async function builtinBuffer(){
+  const sr=getCtx().sampleRate, dur=21.8, n=Math.ceil(dur*sr), OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const oc=new OAC(2,n,sr), out=oc.createGain(); out.gain.value=0.8; out.connect(oc.destination);
+  scheduleMelody(oc,out,0.05);
+  const nb=oc.createBuffer(2,n,sr); // тихий розовый шум, чтобы в треке были все частоты
+  for(let ch=0;ch<2;ch++){ const d=nb.getChannelData(ch); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(let i=0;i<n;i++){ const w=Math.random()*2-1; b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759; b2=0.969*b2+w*0.153852; b3=0.8665*b3+w*0.3104856; b4=0.55*b4+w*0.5329522; b5=-0.7616*b5-w*0.016898;
+      d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11*0.08; b6=w*0.115926; } }
+  const ns=oc.createBufferSource(); ns.buffer=nb; ns.connect(oc.destination); ns.start(0);
+  return await new Promise((res,rej)=>{ oc.oncomplete=e=>res(e.renderedBuffer); const p=oc.startRendering(); if(p&&p.then) p.then(res,rej); });
+}
+async function runRef(){
+  if(busy) return;
+  $("#mOut").innerHTML='<p class="hint" style="margin-top:12px">Готовлю трек…</p>';
+  try{ if(!refBuf) refBuf=await builtinBuffer(); }catch(e){ $("#mOut").innerHTML=errHTML("Не удалось подготовить трек: "+(e&&e.message||e)); return; }
+  await runExact(refBuf.getChannelData(0).slice(),refBuf.getChannelData(1).slice(),"Встроенный трек",null,$("#rProg"));
+}
+
+/* ---------- Любая музыка ---------- */
+let anyRes=load("anyMusic",[]);
+function musicModel(f){ // примерная форма спектра музыки по третьоктавам: как розовый шум, спад на верхах и в самом низу
+  return (f>4000?-3*Math.log2(f/4000):0)+(f<35?-12*Math.log2(35/f):0);
+}
+async function runAny(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const sec=+$("#aLen").value;
+    $("#aOut").innerHTML='<p class="hint" style="margin-top:12px">Слушаю '+sec+' секунд. Не разговаривайте.</p>';
+    const {x,sr}=await recordSilence(sec,$("#aProg"));
+    let sq=0, pk=0; for(let i=0;i<x.length;i++){ sq+=x[i]*x[i]; pk=Math.max(pk,Math.abs(x[i])); }
+    if(Math.sqrt(sq/x.length)<0.003) throw new Error("Музыку почти не слышно. Прибавьте громкость и повторите.");
+    const raw=ltasPts(ltas(x,sr,8192)).filter(p=>p[0]>=25&&p[0]<=16000).map(p=>[p[0],p[1]+10*Math.log10(p[0])-musicModel(p[0])]);
+    const pts=normPts(smoothPts(raw,1/3));
+    anyRes.push({label:$("#aName").value.trim()||"Трек "+(anyRes.length+1),pts,at:Date.now(),eng:engineOn(),clip:pk>0.97});
+    if(anyRes.length>10) anyRes.shift(); save("anyMusic",anyRes); $("#aName").value="";
+    const r=renderAny();
+    if(r&&r.b) report("music",{s:r.b.score>=75?"ok":r.b.score>=55?"warn":"bad",n:r.b.score,v:"Harman "+r.b.score+" по "+anyRes.length+" "+(anyRes.length===1?"треку":"трекам"),d:(devText(r.b.dev)[0]||"Сильных отклонений от эталона нет.")+(anyRes.length<3?" Для точности добавьте ещё треков.":"")});
+  }catch(e){ renderAny(); $("#aOut").insertAdjacentHTML("afterbegin",errHTML(e)); }
+  finally{ busy=false; lockButtons(false); }
+}
+function anyAverage(){
+  const m=new Map(); anyRes.forEach(r=>r.pts.forEach(p=>{ const k=p[0].toFixed(1); if(!m.has(k)) m.set(k,[p[0],[]]); m.get(k)[1].push(p[1]); }));
+  return normPts([...m.values()].filter(v=>v[1].length===anyRes.length).map(v=>[v[0],mean(v[1])]).sort((a,b)=>a[0]-b[0]));
+}
+function renderAny(){
+  const out=$("#aOut"), ch=$("#aChart"), lg=$("#aLegend");
+  if(!anyRes.length){ out.innerHTML=""; ch.innerHTML=""; lg.innerHTML=""; return null; }
+  const avg=anyAverage(), n=anyRes.length;
+  ch.innerHTML=drawChart(anyRes.map(r=>({pts:r.pts,color:"var(--line)"})).concat([{pts:avg,color:"var(--accent)"}]).concat(targetSeries()),{fmin:25,fmax:16000,ymin:-30,label:"Как система играет музыку"});
+  lg.innerHTML='<li><span class="sw" style="background:var(--accent)"></span><span class="nm">Среднее по '+n+' '+(n===1?"треку":"трекам")+'</span></li><li><span class="sw" style="background:var(--line)"></span><span class="nm">Отдельные треки</span></li>'+targetLegend();
+  bindTargetLegend(lg,renderAny);
+  // разброс между треками: насколько им можно верить
+  let spread=0; if(n>1){ const d=[]; anyRes.forEach(r=>r.pts.forEach(p=>{ const q=avg.find(z=>Math.abs(z[0]-p[0])<0.05); if(q&&p[0]>=60&&p[0]<=10000) d.push((p[1]-q[1])*(p[1]-q[1])); })); spread=Math.sqrt(mean(d)); }
+  const acc=n===1?["грубо","Один трек — у каждой песни свой баланс, поэтому результат примерный. Добавьте ещё 2–4 разных трека."]:n<4?["средне","Ещё "+(4-n)+" "+(4-n===1?"трек":"трека")+" — и точность станет хорошей. Лучше брать разные жанры."]:["хорошо","Особенности отдельных песен усреднились."];
+  const b=scoreVs(avg,"harman");
+  let h='<div class="recs"><div class="rec"><span>Точность</span><b>'+acc[0]+'</b><span>'+n+' '+(n===1?"трек":n<5?"трека":"треков")+(n>1?", разброс ±"+spread.toFixed(0)+" дБ":"")+'</span></div>'+(b?'<div class="rec"><span>Harman для машины</span><b style="color:'+scoreColor(b.score)+'">'+b.score+'</b><span>из 100</span></div>':'')+'</div>';
+  const tips=[acc[1]]; if(b){ const t=devText(b.dev); tips.push(...(t.length?t.map(x=>"Относительно Harman: "+x):["Сильных отклонений от кривой Harman нет — звучание сбалансированное."])); }
+  if(anyRes.some(r=>r.clip)) tips.push("Во время одного из замеров перегрузился микрофон — сделайте потише.");
+  tips.push("Ноль на графике — как в типичной музыке. Выше нуля — система эти частоты добавляет, ниже — теряет. Микрофон iPhone занижает самый низ, ниже 40 Гц не доверяйте.");
+  h+='<ul class="tips">'+tips.map(t=>"<li>"+t+"</li>").join("")+'</ul>';
+  h+='<ul class="tracks">'+anyRes.map((r,i)=>'<li><span class="nm">'+esc(r.label)+'</span><button class="mini" data-adel="'+i+'">Удалить</button></li>').join("")+'</ul>';
+  out.innerHTML=h;
+  out.querySelectorAll("[data-adel]").forEach(el=>el.addEventListener("click",()=>{ anyRes.splice(+el.dataset.adel,1); save("anyMusic",anyRes); renderAny(); }));
+  return {b};
+}
+function setMM(m){ document.querySelectorAll("[data-mm]").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.mm===m))); $("#mmAny").hidden=m!=="any"; $("#mmExact").hidden=m!=="exact"; save("mm",m); }
+function renderMusic(){
+  const vis=mRes.filter(r=>r.on);
+  $("#mChart").innerHTML=mRes.length?drawChart(vis.concat(targetSeries()),{fmin:25,fmax:16000,ymin:-40,label:"Как система меняет музыку"}):"";
+  $("#mLegend").innerHTML=mRes.map((r,i)=>'<li><input type="checkbox" data-i="'+i+'"'+(r.on?" checked":"")+' aria-label="Показать '+esc(r.label)+'"><span class="sw" style="background:'+r.color+'"></span><span class="nm">'+esc(r.label)+'</span><button class="mini" data-del="'+i+'">Удалить</button></li>').join("")+(mRes.length?targetLegend():"");
+  bindTargetLegend($("#mLegend"),renderMusic);
+  $("#mLegend").querySelectorAll("input[data-i]").forEach(el=>el.addEventListener("change",()=>{ mRes[+el.dataset.i].on=el.checked; save("music",mRes); renderMusic(); }));
+  $("#mLegend").querySelectorAll("[data-del]").forEach(el=>el.addEventListener("click",()=>{ mRes.splice(+el.dataset.del,1); save("music",mRes); renderMusic(); }));
+  const last=vis[vis.length-1];
+  $("#mOut").innerHTML=last?'<h2 style="margin-top:16px">Итог по «'+esc(last.label)+'»</h2><p class="hint">Ноль на графике — звук точно как в оригинале. Линия выше нуля — система эту частоту добавляет, ниже — теряет.</p>'+scoreBlock(last.pts,{studio:"Похоже на оригинал",word:"оригинала"})+(last.clip?'<p class="note">Во время записи перегрузился микрофон — убавьте громкость и повторите.</p>':''):"";
+}
+
+/* ---------- Гулкость ---------- */
+let decayRes=load("decayRes",null);
+function decayTime(e,sr,pre){
+  const n=e.length, tail=e.subarray(Math.floor(n*0.8)); let noise=0; for(let i=0;i<tail.length;i++) noise+=tail[i]; noise/=tail.length;
+  const w=Math.round(0.005*sr), env=new Float64Array(n); let s=0; for(let i=0;i<n;i++){ s+=e[i]; if(i>=w) s-=e[i-w]; env[i]=s/Math.min(i+1,w); }
+  let p=0; for(let i=0;i<Math.min(n,pre+Math.round(0.1*sr));i++) if(env[i]>env[p]) p=i;
+  if(10*Math.log10(env[p]/(noise+1e-30))<20) return null;
+  let end=n-1; for(let i=p;i<n;i++){ if(env[i]<noise*3){ end=i; break; } }
+  const S=new Float64Array(end-p+1); let acc=0; for(let i=end;i>=p;i--){ acc+=Math.max(0,e[i]-noise); S[i-p]=acc; }
+  if(!(S[0]>0)) return null;
+  let i5=-1,i15=-1,i25=-1; for(let i=0;i<S.length;i++){ const d=10*Math.log10(S[i]/S[0]+1e-30); if(i5<0&&d<=-5) i5=i; if(i15<0&&d<=-15) i15=i; if(d<=-25){ i25=i; break; } }
+  if(i5>=0&&i25>i5) return 3*(i25-i5)/sr;
+  if(i5>=0&&i15>i5) return 6*(i15-i5)/sr;
+  return null;
+}
+async function runDecay(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, sw=sweepGen(sr,6*durMul(),0.5);
+    $("#decayOut").innerHTML='<p class="hint" style="margin-top:12px">Идёт замер…</p>';
+    const {x}=await playAndRecord(sw,sw,$("#decayProg"));
+    let pk=0; for(let i=0;i<x.length;i++) pk=Math.max(pk,Math.abs(x[i]));
+    if(pk<0.003) throw new Error("Микрофон почти не слышит свип. Прибавьте громкость.");
+    const h=impulse(x,sw,sr,20,Math.min(20000,sr/2*0.9)), g=argmaxAbs(h,0,x.length), pre=Math.round(0.01*sr), len=Math.round(0.9*sr), seg=new Float64Array(len);
+    for(let i=0;i<len;i++) seg[i]=h[g.k-pre+i]||0;
+    const N=nextPow2(len*2), SR=new Float64Array(N), SI=new Float64Array(N); SR.set(seg); fft(SR,SI); const df=sr/N;
+    const bands=[63,125,250,500,1000,2000,4000].map(fc=>{
+      const re=new Float64Array(N), im=new Float64Array(N);
+      for(let k=0;k<=N/2;k++){ const m=octMask(k*df,fc); re[k]=SR[k]*m; im[k]=SI[k]*m; if(k>0&&k<N/2){ re[N-k]=re[k]; im[N-k]=-im[k]; } }
+      ifft(re,im); const e=new Float64Array(len); for(let i=0;i<len;i++) e[i]=re[i]*re[i];
+      const rt=decayTime(e,sr,pre); return {fc,rt:rt==null?null:Math.round(rt*1000)};
+    });
+    decayRes={bands,at:Date.now(),eng:engineOn()}; save("decayRes",decayRes);
+    const v=renderDecay(); if(v) report("decay",v);
+  }catch(e){ $("#decayOut").innerHTML=errHTML(e); }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderDecay(){
+  const out=$("#decayOut"); if(!decayRes){ out.innerHTML=""; return null; }
+  const B=decayRes.bands, val=fs=>{ const v=B.filter(b=>fs.includes(b.fc)&&b.rt!=null).map(b=>b.rt); return v.length?mean(v):null; };
+  const bass=val([125])!=null?val([125]):val([63]), mid=val([500,1000,2000]);
+  let h, r;
+  if(bass==null||mid==null){ h=verdictHTML("warn","?","Не хватило данных","Сигнал слабый на части частот. Прибавьте громкость и повторите."); r=null; }
+  else if(bass>2.2*mid&&bass>150){ h=verdictHTML("warn","~","Бас гулкий","Бас затухает за "+Math.round(bass)+" мс — в "+(bass/mid).toFixed(1).replace(".",",")+" раза дольше середины. На слух это «бубнение» и размазанные удары. Помогает: шумоизоляция дверей и багажника, меньше бас-буста на сабе, не задирать 40–60 Гц."); r={s:"warn",v:"бас "+Math.round(bass)+" мс",d:"Бас затухает в "+(bass/mid).toFixed(1).replace(".",",")+" раза дольше середины."}; }
+  else if(mid>250){ h=verdictHTML("warn","~","Салон звонкий","Середина затухает за "+Math.round(mid)+" мс — это много для машины. Голоса могут звучать гулко."); r={s:"warn",v:"середина "+Math.round(mid)+" мс",d:"Звонкий салон."}; }
+  else { h=verdictHTML("ok","✓","Салон звучит собранно","Бас затухает за "+Math.round(bass)+" мс, середина за "+Math.round(mid)+" мс — нормально для машины, удары чёткие."); r={s:"ok",v:"бас "+Math.round(bass)+" мс, середина "+Math.round(mid)+" мс",d:"Гулкости нет."}; }
+  const mx=Math.max(300,...B.map(b=>b.rt||0));
+  h+='<div class="table-wrap"><table><thead><tr><th>Частота</th><th>Затухание</th><th style="width:50%"></th></tr></thead><tbody>'+
+    B.map(b=>'<tr><td>'+fmtHz(b.fc)+'</td><td class="num">'+(b.rt==null?"—":b.rt+" мс")+'</td><td>'+(b.rt==null?"":'<div class="bar" style="width:'+Math.min(100,b.rt/mx*100)+'%"></div>')+'</td></tr>').join("")+
+    '</tbody></table></div><p class="hint" style="margin-top:8px">Время, за которое звук затухает на 60 дБ (RT60). Вывод про бас сделан по 125 Гц: на 63 Гц и микрофон iPhone слышит плохо, и сам расчёт завышает время, эта цифра справочная.</p>';
+  out.innerHTML=h; if(r){ r.at=decayRes.at; r.eng=decayRes.eng; } return r;
+}
+
+/* ---------- Задержка Л/П ---------- */
+let dly=load("delay",[]);
+async function runDelay(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const r=await twoChannelIR(3*durMul(),$("#delayProg"),1000,8000);
+    if(Math.min(r.mL,r.mR)<0.15*Math.max(r.mL,r.mR)) throw new Error("Один из каналов почти не слышно. Проверьте баланс и динамики — поможет вкладка «Все 4 динамика».");
+    const ip=p=>{ const y0=Math.abs(r.h[p-1]),y1=Math.abs(r.h[p]),y2=Math.abs(r.h[p+1]), den=y0-2*y1+y2, d=den?0.5*(y0-y2)/den:0; return p+(Math.abs(d)<1?d:0); };
+    const ms=(ip(r.pR)-r.D-ip(r.pL))/r.sr*1000;
+    if(Math.abs(ms)>3.5) throw new Error("Получилось "+Math.abs(ms).toFixed(1).replace(".",",")+" мс — так в машине не бывает, видимо, запись прерывалась. Повторите замер, телефон не трогайте.");
+    dly.push({ms:Math.round(ms*1000)/1000,at:Date.now(),eng:engineOn()}); if(dly.length>5) dly.shift(); save("delay",dly);
+    renderDelay();
+    const m=median(dly.map(d=>d.ms));
+    report("delay",{s:Math.abs(m)<0.25?"ok":"info",v:Math.abs(m)<0.25?"одновременно":(m>0?"левый":"правый")+" ближе на "+Math.round(Math.abs(m)*34.3)+" см",d:"Разница прихода звука "+Math.abs(m).toFixed(2).replace(".",",")+" мс."});
+  }catch(e){ renderDelay(); $("#delayOut").insertAdjacentHTML("afterbegin",errHTML(e)); }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderDelay(){
+  const out=$("#delayOut"); if(!dly.length){ out.innerHTML=""; return; }
+  const ms=median(dly.map(d=>d.ms)), cm=Math.round(Math.abs(ms)*34.3), sd=dly.length>1?Math.sqrt(mean(dly.map(d=>(d.ms-ms)*(d.ms-ms)))):0, msTxt=Math.abs(ms).toFixed(2).replace(".",",");
+  let h;
+  if(Math.abs(ms)<0.25) h=verdictHTML("ok","=","Звук приходит одновременно","Разница всего "+msTxt+" мс — сцена должна стоять по центру.");
+  else h=verdictHTML("warn",ms>0?"←":"→",(ms>0?"Левый":"Правый")+" ближе на "+cm+" см","Звук от "+(ms>0?"левого":"правого")+" динамика приходит раньше на "+msTxt+" мс, поэтому сцена тянется "+(ms>0?"влево":"вправо")+". Для места водителя это нормально — так во всех машинах.");
+  const tips=[];
+  if(Math.abs(ms)>=0.25){
+    tips.push("Штатная Sony задержку не настраивает. Частично помогает баланс в сторону дальнего канала — мастер «Настройка магнитолы» подберёт его по громкости.");
+    tips.push("Полностью это решает процессор (DSP) с временной задержкой: на "+(ms>0?"левый":"правый")+" канал ставят "+msTxt+" мс, и звук от обеих дверей приходит одновременно.");
+  }
+  if(sd>0.2) tips.push("Замеры разбросаны на ±"+sd.toFixed(2).replace(".",",")+" мс — держите телефон неподвижно на одном месте.");
+  if(dly.length<2) tips.push("Сделайте ещё пару замеров для точности.");
+  h+='<ul class="tips">'+tips.map(t=>"<li>"+t+"</li>").join("")+'</ul>';
+  h+='<div class="table-wrap"><table><thead><tr><th>Замер</th><th>Правый позже левого</th></tr></thead><tbody>'+dly.map((d,i)=>'<tr><td>'+(i+1)+'</td><td class="num">'+fmt(d.ms,2)+' мс</td></tr>').join("")+'<tr><td><b>Итог (медиана)</b></td><td class="num"><b>'+fmt(ms,2)+' мс</b></td></tr></tbody></table></div>';
+  out.innerHTML=h;
+}
+
+/* ---------- Шум и наводки ---------- */
+const NOISE_SCEN=[["base","Громкость на нуле"],["vol","Обычная громкость, на входе тишина"],["rpm","Повышенные обороты (~2500), громкость обычная"],["own","Свой вариант"]];
+let noises=load("noises",[]);
+function tonalPeaks(L){
+  const P=L.P, df=L.df, dB=Array.from(P,v=>10*Math.log10(v+1e-30)), out=[];
+  const k0=Math.max(3,Math.round(60/df)), k1=Math.min(P.length-4,Math.round(10000/df));
+  for(let k=k0;k<=k1;k++){
+    if(!(dB[k]>dB[k-1]&&dB[k]>=dB[k+1])) continue;
+    const f=k*df, a=Math.max(1,Math.round(f/Math.pow(2,1/6)/df)), b=Math.min(P.length-1,Math.round(f*Math.pow(2,1/6)/df)), nb=[];
+    for(let j=a;j<=b;j++) if(Math.abs(j-k)>2) nb.push(dB[j]);
+    if(nb.length<6) continue; const pr=dB[k]-median(nb); if(pr>=12) out.push({f,pr});
+  }
+  out.sort((x,y)=>y.pr-x.pr); const res=[]; out.forEach(p=>{ if(res.length<5&&!res.some(q=>Math.abs(Math.log2(q.f/p.f))<0.05)) res.push(p); });
+  return res.map(p=>({f:Math.round(p.f),pr:Math.round(p.pr)})).sort((a,b)=>a.f-b.f);
+}
+async function runNoise(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const {x,sr}=await recordSilence(6,$("#noiseProg")), L=ltas(x,sr,16384), bands=thirdOct(L).map(b=>[b[0],Math.round((b[1]+100)*10)/10]);
+    const id=$("#noiseScen").value, label=$("#noiseLabel").value.trim()||NOISE_SCEN.find(z=>z[0]===id)[1];
+    noises.push({id,label,eng:engineOn(),at:Date.now(),bands,la:totalA(bands),peaks:tonalPeaks(L)}); if(noises.length>8) noises.shift(); save("noises",noises);
+    renderNoise(); const ins=noiseInsights(); report("noise",{s:ins.s,v:ins.v,d:ins.d});
+    const i=NOISE_SCEN.findIndex(z=>z[0]===id); if(i>=0&&i<2){ $("#noiseScen").value=NOISE_SCEN[i+1][0]; $("#noiseLabel").value=NOISE_SCEN[i+1][1]; }
+  }catch(e){ $("#noiseOut").insertAdjacentHTML("afterbegin",errHTML(e)); }
+  finally{ busy=false; lockButtons(false); }
+}
+function noiseInsights(){
+  const by=id=>{ for(let i=noises.length-1;i>=0;i--) if(noises[i].id===id) return noises[i]; return null; };
+  const base=by("base"), vol=by("vol"), rpm=by("rpm"), near=(p,list)=>list.some(q=>Math.abs(Math.log2(q.f/p.f))<0.045), hz=l=>l.map(p=>fmtHz(p.f)).join(", ");
+  const tips=[]; let s="info", v="замер есть";
+  if(base&&vol){
+    const np=vol.peaks.filter(p=>!near(p,base.peaks)), dl=vol.la-base.la;
+    if(np.length){ s="bad"; v="наводка "+hz(np); tips.push("<b>Наводка в аудиотракте.</b> Тон "+hz(np)+" появляется только при поднятой громкости — он идёт из динамиков, а не от мотора."); }
+    else if(dl>3){ s="warn"; v="фон из динамиков +"+dl.toFixed(0)+" дБ"; tips.push("При поднятой громкости фон громче на "+dl.toFixed(0)+" дБ: из динамиков идёт шипение или гул без чёткого тона — шум усилителя или наводка."); }
+    else { s="ok"; v="чисто"; tips.push("При поднятой громкости посторонних звуков из динамиков нет — проводка и AUX в порядке."); }
+  }
+  if(rpm&&(vol||base)){
+    const np=rpm.peaks.filter(p=>!near(p,(vol||base).peaks)&&!(base&&near(p,base.peaks)));
+    if(np.length){ s="bad"; v="вой генератора "+hz(np); tips.push("<b>С оборотами появляется тон "+hz(np)+".</b> Если он слышен из динамиков и растёт вместе с оборотами — это вой генератора."); }
+    else tips.push("На повышенных оборотах новых тонов нет — воя генератора не слышно.");
+  }
+  if(s==="bad") tips.push("Что помогает: на время AUX отключить зарядку телефона от прикуривателя; поставить на провод AUX изолятор массы (ground loop isolator) — стоит недорого; проверить, хорошо ли прикручена масса магнитолы и саба.");
+  if(!base||!vol) tips.push("Для вывода нужны хотя бы два замера: «Громкость на нуле» и «Обычная громкость».");
+  if(noises.some(e=>!e.eng)) tips.push("Часть замеров сделана с заглушенным двигателем — вой генератора так не поймать.");
+  return {s,v,d:(tips[0]||"").replace(/<[^>]+>/g,""),tips};
+}
+function renderNoise(){
+  const out=$("#noiseOut"); if(!noises.length){ out.innerHTML=""; return; }
+  const ins=noiseInsights(), kind=ins.s==="info"?"warn":ins.s;
+  let h=(ins.s==="info"?"":verdictHTML(kind,ins.s==="ok"?"✓":"!",ins.s==="ok"?"Наводок нет":ins.s==="warn"?"Фон из динамиков":"Найдена наводка",""))+'<ul class="tips">'+ins.tips.map(t=>"<li>"+t+"</li>").join("")+'</ul>';
+  h+='<div class="chart">'+drawChart(noises.map((e,i)=>({pts:e.bands,color:PALETTE[i%PALETTE.length]})),{fmin:25,fmax:16000,label:"Спектр шума"})+'</div>';
+  h+='<div class="table-wrap"><table><thead><tr><th></th><th>Замер</th><th>Общий</th><th>Посторонние тоны</th></tr></thead><tbody>'+
+    noises.map((e,i)=>'<tr><td><span class="sw" style="display:inline-block;width:14px;height:4px;border-radius:2px;background:'+PALETTE[i%PALETTE.length]+'"></span></td><td>'+esc(e.label)+(e.eng?"":" (мотор заглушен)")+'</td><td class="num">'+e.la.toFixed(0)+' дБ</td><td>'+(e.peaks.length?e.peaks.map(p=>fmtHz(p.f)).join(", "):"нет")+'</td></tr>').join("")+
+    '</tbody></table></div><p class="hint" style="margin-top:8px">Децибелы условные: микрофон телефона не откалиброван. Сравнивать можно только замеры с одного телефона.</p>';
+  out.innerHTML=h;
+}
+
+/* ---------- Шумоизоляция ---------- */
+let isos=load("isos",[]);
+async function runIso(){
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const {x,sr}=await recordSilence(10,$("#isoProg")), bands=thirdOct(ltas(x,sr,8192)).map(b=>[b[0],Math.round((b[1]+100)*10)/10]);
+    isos.push({label:$("#isoLabel").value.trim()||"Замер "+(isos.length+1),at:Date.now(),eng:engineOn(),bands,la:totalA(bands),low:sumBands(bands,20,200),mid:sumBands(bands,200,2000),high:sumBands(bands,2000,20000)});
+    if(isos.length>10) isos.shift(); save("isos",isos); renderIso();
+    const f=isos[0], l=isos[isos.length-1], d=l.la-f.la;
+    report("iso",{s:"info",v:l.la.toFixed(0)+" дБ"+(isos.length>1?", "+(d<=0?"−":"+")+nf1(Math.abs(d))+" к первому":""),d:"Последний замер: «"+l.label+"»."});
+  }catch(e){ $("#isoOut").insertAdjacentHTML("afterbegin",errHTML(e)); }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderIso(){
+  if(!isos.length){ $("#isoChart").innerHTML=""; $("#isoOut").innerHTML=""; return; }
+  $("#isoChart").innerHTML=drawChart(isos.map((e,i)=>({pts:e.bands,color:PALETTE[i%PALETTE.length]})),{fmin:25,fmax:16000,label:"Шум в салоне"});
+  const f0=isos[0]; let h="";
+  if(isos.length>=2){
+    const l=isos[isos.length-1], d=l.la-f0.la, parts=[["низ (гул шин и подвески)",l.low-f0.low],["середина (мотор, дорога)",l.mid-f0.mid],["верх (ветер, шипение)",l.high-f0.high]].sort((a,b)=>a[1]-b[1]);
+    if(d<=-1) h=verdictHTML("ok","↓","Тише на "+nf1(-d)+" дБ","На слух шум стал тише примерно на "+Math.round((1-Math.pow(2,d/10))*100)+"% по сравнению с «"+esc(f0.label)+"». Больше всего изменился "+parts[0][0]+": "+fmt(parts[0][1])+" дБ.");
+    else if(d>=1) h=verdictHTML("bad","↑","Громче на "+nf1(d)+" дБ","Шум вырос примерно на "+Math.round((Math.pow(2,d/10)-1)*100)+"%. Проверьте, совпадали ли условия: скорость, дорога, окна, вентилятор.");
+    else h=verdictHTML("warn","=","Почти без изменений","Разница меньше 1 дБ — на слух не заметно.");
+  }
+  h+='<div class="table-wrap"><table><thead><tr><th></th><th>Замер</th><th>Общий</th><th>Низ</th><th>Середина</th><th>Верх</th><th>К первому</th></tr></thead><tbody>'+
+    isos.map((e,i)=>'<tr><td><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:'+PALETTE[i%PALETTE.length]+'"></span></td><td>'+esc(e.label)+'</td><td class="num">'+e.la.toFixed(0)+'</td><td class="num">'+e.low.toFixed(0)+'</td><td class="num">'+e.mid.toFixed(0)+'</td><td class="num">'+e.high.toFixed(0)+'</td><td class="num">'+(i?fmt(e.la-f0.la)+" дБ":"—")+'</td></tr>').join("")+
+    '</tbody></table></div><p class="hint" style="margin-top:8px">Общий уровень взвешен по чувствительности уха (дБА), децибелы условные. Минус 3 дБ — шум тише примерно на 20%, минус 10 дБ — вдвое тише на слух.</p>';
+  $("#isoOut").innerHTML=h;
+}
+
+/* ---------- Предел громкости ---------- */
+let mvRows=load("mv",[]);
+const fmtV=v=>String(v).replace(".",",");
+async function runMaxVol(){
+  const vol=parseFloat(String($("#mvVol").value).replace(",","."));
+  if(!isFinite(vol)){ $("#mvOut").insertAdjacentHTML("afterbegin",'<p class="status bad">Введите громкость числом, например 24.</p>'); return; }
+  if(busy) return; busy=true; lockButtons(true);
+  try{
+    const c=await resume(), sr=c.sampleRate, segS=1.2, seg=Math.round(segS*sr), L=new Float32Array(seg*2);
+    L.set(tone(sr,1000,1.0,0.9,0.02),0); L.set(tone(sr,100,1.0,0.9,0.03),seg);
+    const {x,lead}=await playAndRecord(L,L,$("#mvProg"));
+    let pk=0; for(let i=0;i<x.length;i++) pk=Math.max(pk,Math.abs(x[i]));
+    if(pk<0.003) throw new Error("Микрофон почти не слышит тоны. Прибавьте громкость.");
+    const on=findOnset(x,sr), base=on!=null?on:lead+0.05, wl=Math.round(0.6*sr), n0=Math.round(0.03*sr), nl=Math.round(0.3*sr);
+    const m=(f,k)=>{ const st=Math.round((base+k*segS+0.25)*sr), fund=toneLevel(x,st,wl,f,sr); let hp=0;
+      for(let hh=2;hh<=6;hh++){ const fh=f*hh; if(fh>sr/2.2) break; const lv=toneLevel(x,st,wl,fh,sr), nz=toneLevel(x,n0,nl,fh,sr); if(lv>nz+6) hp+=Math.pow(10,lv/10); }
+      return {lv:fund,thd:100*Math.sqrt(hp/Math.pow(10,fund/10))}; };
+    const a=m(1000,0), b=m(100,1);
+    mvRows=mvRows.filter(r=>r.vol!==vol); mvRows.push({vol,l1:a.lv,t1:a.thd,l2:b.lv,t2:b.thd,clip:pk>0.97,at:Date.now(),eng:engineOn()}); save("mv",mvRows);
+    const sm=renderMV(); if(sm) report("maxvol",sm);
+    $("#mvVol").value=fmtV(vol+2);
+  }catch(e){ $("#mvOut").insertAdjacentHTML("afterbegin",errHTML(e)); }
+  finally{ busy=false; lockButtons(false); }
+}
+function renderMV(){
+  const out=$("#mvOut"), rows=mvRows.slice().sort((a,b)=>a.vol-b.vol); if(!rows.length){ out.innerHTML=""; return null; }
+  const good=rows.filter(r=>!r.clip); let limit=null, why="";
+  for(let i=0;i<good.length;i++){ const r=good[i];
+    if(r.t1>=3){ limit=r; why="искажения на 1 кГц "+nf1(r.t1)+"% — клиппирует усилитель магнитолы"; break; }
+    if(r.t2>=10){ limit=r; why="искажения на 100 Гц "+r.t2.toFixed(0)+"% — на басу хрипят динамики или усилитель"; break; }
+    if(i>=2){ const p=good[i-1], q=good[i-2], s1=(p.l1-q.l1)/(p.vol-q.vol), s2=(r.l1-p.l1)/(r.vol-p.vol); if(s1>0.3&&s2<0.35*s1){ limit=r; why="громкость почти перестала расти — усилитель упёрся в потолок"; break; } }
+  }
+  let h, res;
+  if(limit){ const prev=good.slice(0,good.indexOf(limit)).pop(), v=prev?"не выше "+fmtV(prev.vol):"ниже "+fmtV(limit.vol);
+    h=verdictHTML("ok","■","Предел: "+v,"На громкости "+fmtV(limit.vol)+" "+why+". Держите громкость "+v+" — громче всё равно не станет, только грязнее.");
+    res={s:"ok",v,d:"На "+fmtV(limit.vol)+": "+why+"."}; }
+  else { const top=good[good.length-1];
+    h=verdictHTML("warn","↑","Пока чисто",top?"До громкости "+fmtV(top.vol)+" искажений нет. Прибавьте на 2–3 деления и замерьте снова.":"Все замеры с перегрузом микрофона — отнесите телефон дальше.");
+    res=top?{s:"info",v:"до "+fmtV(top.vol)+" чисто",d:"Предел ещё не найден."}:null; }
+  if(rows.some(r=>r.clip)) h+='<p class="note">На громкости '+rows.filter(r=>r.clip).map(r=>fmtV(r.vol)).join(", ")+' перегрузился микрофон телефона — эти замеры не считаются. Положите телефон дальше от динамиков.</p>';
+  const ref=(good[0]||rows[0]).l1, cls=(t,lim)=>t<lim?"good":"badc";
+  h+='<div class="table-wrap"><table><thead><tr><th>Громкость</th><th>Уровень</th><th>Искажения 1 кГц</th><th>Искажения 100 Гц</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+fmtV(r.vol)+'</td><td class="num">'+(r.clip?"перегруз микрофона":fmt(r.l1-ref)+" дБ")+'</td><td class="num '+(r.clip?"":cls(r.t1,3))+'">'+(r.clip?"—":nf1(r.t1)+"%")+'</td><td class="num '+(r.clip?"":cls(r.t2,10))+'">'+(r.clip?"—":nf1(r.t2)+"%")+'</td></tr>').join("")+
+    '</tbody></table></div><p class="hint" style="margin-top:8px">Уровень — насколько громче первого замера. Пока он растёт, а искажения маленькие, можно прибавлять.</p>';
+  out.innerHTML=h; return res;
+}
+
+/* ---------- инициализация новых вкладок ---------- */
+function initNew(){
+  $("#repCopy").addEventListener("click",copyReport);
+  $("#repClear").addEventListener("click",()=>{ if(confirm("Очистить отчёт? Сами замеры во вкладках останутся.")){ rep={}; save("report",rep); renderReport(); } });
+  $("#spkStart").addEventListener("click",spkStart);
+  if(spk&&spk.rear!=null) $("#spkRear").checked=spk.rear;
+  $("#mFile").addEventListener("change",onFile);
+  $("#mStart").addEventListener("input",()=>{ updStart(); if(mPrev) stopPreview(); });
+  $("#mPreview").addEventListener("click",previewMusic);
+  $("#mRun").addEventListener("click",runMusic);
+  $("#rRun").addEventListener("click",runRef);
+  $("#aRun").addEventListener("click",runAny);
+  $("#aClear").addEventListener("click",()=>{ anyRes=[]; save("anyMusic",anyRes); renderAny(); });
+  document.querySelectorAll("[data-mm]").forEach(x=>x.addEventListener("click",()=>setMM(x.dataset.mm)));
+  setMM(load("mm","any")==="exact"?"exact":"any");
+  $("#decayBtn").addEventListener("click",runDecay);
+  $("#delayBtn").addEventListener("click",runDelay);
+  $("#delayClear").addEventListener("click",()=>{ dly=[]; save("delay",dly); renderDelay(); });
+  $("#noiseScen").innerHTML=NOISE_SCEN.map(z=>'<option value="'+z[0]+'">'+z[1]+'</option>').join("");
+  const next=NOISE_SCEN.find(z=>!noises.some(e=>e.id===z[0]))||NOISE_SCEN[3]; $("#noiseScen").value=next[0]; $("#noiseLabel").value=next[1];
+  $("#noiseScen").addEventListener("change",()=>{ const z=NOISE_SCEN.find(q=>q[0]===$("#noiseScen").value); $("#noiseLabel").value=z[0]==="own"?"":z[1]; });
+  $("#noiseBtn").addEventListener("click",runNoise);
+  $("#noiseClear").addEventListener("click",()=>{ noises=[]; save("noises",noises); renderNoise(); $("#noiseScen").value="base"; $("#noiseLabel").value=NOISE_SCEN[0][1]; });
+  $("#isoBtn").addEventListener("click",runIso);
+  $("#isoClear").addEventListener("click",()=>{ isos=[]; save("isos",isos); renderIso(); });
+  $("#mvBtn").addEventListener("click",runMaxVol);
+  $("#mvClear").addEventListener("click",()=>{ mvRows=[]; save("mv",mvRows); renderMV(); });
+  if(mvRows.length){ const mx=Math.max(...mvRows.map(r=>r.vol)); $("#mvVol").value=fmtV(mx+2); }
+  renderSpk(); renderMusic(); renderAny(); renderDecay(); renderDelay(); renderNoise(); renderIso(); renderMV(); renderReport();
+}
+
+/* ---------- Прослушка ---------- */
+let master=null, sweepRAF=0, stopTimer=0;
+function stopPlay(){
+  if(master){ try{ master.gain.setTargetAtTime(0,getCtx().currentTime,0.03); }catch(e){} const m=master; setTimeout(()=>m.disconnect(),200); master=null; }
+  cancelAnimationFrame(sweepRAF); clearTimeout(stopTimer); $("#swFreq").hidden=true; $("#stopBtn").disabled=true;
+}
+async function makeMaster(){
+  const c=await resume(); stopPlay();
+  master=c.createGain(); master.gain.value=0.9;
+  const pan=parseFloat($("#pan").value);
+  if(c.createStereoPanner){ const p=c.createStereoPanner(); p.pan.value=pan; master.connect(p); p.connect(c.destination); }
+  else master.connect(c.destination);
+  $("#stopBtn").disabled=false; return c;
+}
+function scheduleMelody(c,out,t0){
+  const bpm=96, beat=60/bpm, bar=beat*4;
+  const roots=[41.2,41.2,49.0,36.7,41.2,41.2,55.0,49.0];
+  const noise=c.createBuffer(1,Math.round(0.06*c.sampleRate),c.sampleRate), nd=noise.getChannelData(0);
+  for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
+  roots.forEach((r,b)=>{
+    const tb=t0+b*bar;
+    for(let q=0;q<4;q++){ // бочка
+      const t=tb+q*beat, o=c.createOscillator(), g=c.createGain();
+      o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(42,t+0.12);
+      g.gain.setValueAtTime(0.9,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t+0.45);
+    }
+    for(let e=0;e<8;e++){ // бас
+      const t=tb+e*beat/2, f=r*(e%4===3?2:1)*2, o=c.createOscillator(), lp=c.createBiquadFilter(), g=c.createGain();
+      o.type="sawtooth"; o.frequency.value=f; lp.type="lowpass"; lp.frequency.value=260; lp.Q.value=4;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.35,t+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+beat/2-0.01);
+      o.connect(lp); lp.connect(g); g.connect(out); o.start(t); o.stop(t+beat/2);
+      if(e%2===1){ // хэт
+        const s=c.createBufferSource(), hp=c.createBiquadFilter(), hg=c.createGain();
+        s.buffer=noise; hp.type="highpass"; hp.frequency.value=7000; hg.gain.value=0.18;
+        s.connect(hp); hp.connect(hg); hg.connect(out); s.start(t);
+      }
+    }
+    [4,4.757,6].forEach(mult=>{ // пэд
+      const o=c.createOscillator(), g=c.createGain(); o.type="triangle"; o.frequency.value=r*mult*2;
+      g.gain.setValueAtTime(0.0001,tb); g.gain.exponentialRampToValueAtTime(0.045,tb+0.3); g.gain.setValueAtTime(0.045,tb+bar-0.3); g.gain.exponentialRampToValueAtTime(0.0001,tb+bar);
+      o.connect(g); g.connect(out); o.start(tb); o.stop(tb+bar+0.05);
+    });
+  });
+  // плавные нарастания саба с низким гулом + удар баса после них
+  const nlen=Math.round(2*bar*c.sampleRate), nb2=c.createBuffer(1,nlen,c.sampleRate), nbd=nb2.getChannelData(0);
+  for(let i=0;i<nlen;i++) nbd[i]=Math.random()*2-1;
+  [2,6].forEach(b=>{
+    const ts=t0+b*bar, te=ts+2*bar;
+    const o=c.createOscillator(), g=c.createGain(); o.frequency.value=41.2;
+    g.gain.setValueAtTime(0.0001,ts); g.gain.linearRampToValueAtTime(0.55,te-0.12); g.gain.linearRampToValueAtTime(0.0001,te);
+    o.connect(g); g.connect(out); o.start(ts); o.stop(te+0.05);
+    // низкий гул как в кинотеатре: шум только ниже 60 Гц + второй тон для дрожания
+    const ns=c.createBufferSource(), lp1=c.createBiquadFilter(), lp2=c.createBiquadFilter(), ng=c.createGain();
+    ns.buffer=nb2; lp1.type=lp2.type="lowpass"; lp1.frequency.value=lp2.frequency.value=60;
+    ng.gain.setValueAtTime(0.0001,ts); ng.gain.linearRampToValueAtTime(6,te-0.12); ng.gain.linearRampToValueAtTime(0.0001,te);
+    ns.connect(lp1); lp1.connect(lp2); lp2.connect(ng); ng.connect(out); ns.start(ts); ns.stop(te);
+    const o2=c.createOscillator(), g2=c.createGain(); o2.frequency.value=37.5;
+    g2.gain.setValueAtTime(0.0001,ts); g2.gain.linearRampToValueAtTime(0.4,te-0.12); g2.gain.linearRampToValueAtTime(0.0001,te);
+    o2.connect(g2); g2.connect(out); o2.start(ts); o2.stop(te+0.05);
+    const bo=c.createOscillator(), bg=c.createGain();
+    bo.frequency.setValueAtTime(58,te); bo.frequency.exponentialRampToValueAtTime(36,te+0.6);
+    bg.gain.setValueAtTime(0.0001,te); bg.gain.exponentialRampToValueAtTime(0.7,te+0.02); bg.gain.exponentialRampToValueAtTime(0.001,te+1.4);
+    bo.connect(bg); bg.connect(out); bo.start(te); bo.stop(te+1.5);
+  });
+  return roots.length*bar;
+}
+async function playMelody(){ const c=await makeMaster(); const d=scheduleMelody(c,master,c.currentTime+0.1); stopTimer=setTimeout(stopPlay,(d+2)*1000); }
+async function playSweep(){
+  const c=await makeMaster(), out=master, T=20, f1=20, f2=200, t0=c.currentTime+0.1;
+  const o=c.createOscillator(), g=c.createGain();
+  o.frequency.setValueAtTime(f1,t0); o.frequency.exponentialRampToValueAtTime(f2,t0+T);
+  g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.6,t0+0.3); g.gain.setValueAtTime(0.6,t0+T-0.3); g.gain.exponentialRampToValueAtTime(0.0001,t0+T);
+  o.connect(g); g.connect(out); o.start(t0); o.stop(t0+T+0.05);
+  const el=$("#swFreq"); el.hidden=false;
+  const tick=()=>{ const tt=Math.max(0,Math.min(T,c.currentTime-t0)); el.textContent=Math.round(f1*Math.pow(f2/f1,tt/T))+" Гц"; if(tt<T) sweepRAF=requestAnimationFrame(tick); };
+  tick(); stopTimer=setTimeout(stopPlay,(T+0.5)*1000);
+}
+
+/* ---------- режим приложения для iPhone: звук идёт через родной мостик iOS ---------- */
+const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.audio);
+function nat(cmd,o){ return window.webkit.messageHandlers.audio.postMessage(Object.assign({cmd:cmd},o||{})); }
+function f32b64(a){ const u=new Uint8Array(a.buffer,a.byteOffset,a.byteLength); let s=""; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
+function b64f32(b){ const s=atob(b), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return new Float32Array(u.buffer); }
+function routeText(r){ r=r||{}; return "Звук идёт: "+((r.outputs||[]).join(", ")||"?")+". Микрофон: "+((r.inputs||[]).join(", ")||"?")+"."; }
+function showRoute(r){ const el=$("#routeInfo"); if(el) el.textContent="Приложение. "+routeText(r)+" Режим: "+(r&&r.category)+" / "+(r&&r.mode)+"."; }
+const NSTRAT={a:"measure",b:"a2dp",c:"multi",off:"measure"};
+if(NATIVE){
+  const NSR=48000, RING=new Float32Array(16384);
+  const NCTX={sampleRate:NSR,state:"running",get currentTime(){ return performance.now()/1000; },
+    resume(){ return Promise.resolve(); }, suspend(){ return Promise.resolve(); }, close(){ return Promise.resolve(); },
+    createBuffer(ch,n,sr){ return new AudioBuffer({numberOfChannels:ch,length:Math.max(1,n),sampleRate:sr}); },
+    decodeAudioData(ab,res,rej){ const oc=new OfflineAudioContext(2,1,NSR); return oc.decodeAudioData(ab,res,rej); } };
+  getCtx=()=>NCTX;
+  sinkSupport=()=>null;
+  const resample=(d,from)=>{ if(!from||Math.abs(from-NSR)<1) return d; const ratio=from/NSR, n=Math.floor((d.length-1)/ratio)+1, o=new Float32Array(n);
+    for(let i=0;i<n;i++){ const p=i*ratio, k=Math.floor(p), f=p-k; o[i]=d[k]*(1-f)+d[Math.min(k+1,d.length-1)]*f; } return o; };
+  window.__nativeChunk=(b64,rate)=>{
+    if(!micStream) return; const d=resample(b64f32(b64),rate);
+    if(recording) recChunks.push(d);
+    let s=0,c=0; for(let i=0;i<d.length;i+=4){ s+=d[i]*d[i]; c++; } updateMeter(Math.sqrt(s/Math.max(1,c)));
+    const m=Math.min(d.length,RING.length); RING.copyWithin(0,m); RING.set(d.subarray(d.length-m),RING.length-m);
+  };
+  window.__nativeRoute=r=>{ dlog("маршрут звука изменился. "+routeText(r)); showRoute(r); };
+  const NAN={fftSize:16384,frequencyBinCount:8192,
+    getFloatTimeDomainData(out){ out.set(RING.subarray(RING.length-out.length)); },
+    getFloatFrequencyData(out){ const n=RING.length, re=new Float64Array(n), im=new Float64Array(n);
+      for(let i=0;i<n;i++) re[i]=RING[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(n-1))); fft(re,im);
+      for(let k=0;k<out.length;k++) out[k]=10*Math.log10((re[k]*re[k]+im[k]*im[k])*4/(n*n)+1e-20); } };
+  routeInfo=()=>{ nat("route").then(showRoute).catch(()=>{}); };
+  enableMic=async function(){
+    if(micStream) return true;
+    const mode=load("route","a"); dlog("приложение: включаю микрофон, способ "+mode+" ("+(NSTRAT[mode]||"measure")+")");
+    try{
+      const r=await nat("micStart",{strategy:NSTRAT[mode]||"measure"});
+      micStream={native:true}; analyser=NAN; startLive();
+      dlog("микрофон готов. "+routeText(r)+" Режим "+r.category+"/"+r.mode+", частота входа "+r.inputRate);
+      setMicStatus("ok","Микрофон включён. "+routeText(r)); showRoute(r);
+      $("#micBtn").textContent="Микрофон включён"; $("#micBtn").disabled=true; $("#micOff").disabled=false; lockButtons(false);
+      return true;
+    }catch(e){ const m=String(e&&e.message||e); dlog("ошибка микрофона: "+m);
+      setMicStatus("bad",/denied/.test(m)?"Доступ к микрофону запрещён. Разрешите его: Настройки → Автозвук → Микрофон.":"Не удалось включить микрофон: "+m); return false; }
+  };
+  disableMic=async function(){
+    if(!micStream) return; try{ await nat("micStop"); }catch(e){}
+    micStream=null; analyser=null; recording=false; dlog("микрофон выключен");
+    setMicStatus("","Микрофон выключен."); $("#micBtn").textContent="Включить микрофон"; $("#micBtn").disabled=false; $("#micOff").disabled=true; lockButtons(false);
+  };
+  const nativePlay=(L,R)=>nat("play",{L:f32b64(L),R:f32b64(R||L)});
+  const renderOffline=async(dur,build)=>{ const oc=new OfflineAudioContext(2,Math.ceil(dur*NSR),NSR); build(oc,oc.destination);
+    return await new Promise((res,rej)=>{ oc.oncomplete=e=>res(e.renderedBuffer); const p=oc.startRendering(); if(p&&p.then) p.then(res,rej); }); };
+  playAndRecord=async function(L,R,progEl){
+    genStop(); const n=L.length, lead=0.4, bl=f32b64(L), br=f32b64(R);
+    recChunks=[]; recording=true;
+    const total=(lead+n/NSR+1.2)*1000, t0=performance.now();
+    progEl.classList.add("on"); const bar=progEl.firstElementChild;
+    await sleep(lead*1000);
+    try{ await nat("play",{L:bl,R:br}); }
+    catch(e){ recording=false; progEl.classList.remove("on"); bar.style.width="0"; throw new Error("Не удалось включить звук: "+(e&&e.message||e)); }
+    while(performance.now()-t0<total){ bar.style.width=Math.min(100,(performance.now()-t0)/total*100)+"%"; await sleep(100); }
+    recording=false; progEl.classList.remove("on"); bar.style.width="0";
+    let len=0; recChunks.forEach(a=>len+=a.length);
+    const x=new Float32Array(len); let o=0; recChunks.forEach(a=>{ x.set(a,o); o+=a.length; }); recChunks=[];
+    return {x,sr:NSR,lead};
+  };
+  beep=async function(){
+    dlog("писк, микрофон "+(micStream?"включён":"выключен"));
+    const b=await renderOffline(0.8,(c,out)=>{ [660,880].forEach((f,i)=>{ const o=c.createOscillator(), g=c.createGain(), s=0.02+i*0.35; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,s); g.gain.exponentialRampToValueAtTime(0.35,s+0.03); g.gain.exponentialRampToValueAtTime(0.0001,s+0.3);
+      o.connect(g); g.connect(out); o.start(s); o.stop(s+0.32); }); });
+    try{ const r=await nativePlay(b.getChannelData(0),b.getChannelData(1)); dlog("писк сыгран. "+routeText(r)); setMicStatus(micStream?"ok":"","Прозвучали два писка. "+routeText(r)); }
+    catch(e){ setMicStatus("bad","Не удалось включить звук: "+(e&&e.message||e)); }
+  };
+  const panned=(c,out)=>{ const g=c.createGain(); g.gain.value=0.9; const pan=parseFloat($("#pan").value);
+    if(c.createStereoPanner){ const p=c.createStereoPanner(); p.pan.value=pan; g.connect(p); p.connect(out); } else g.connect(out); return g; };
+  stopPlay=function(){ nat("stop").catch(()=>{}); cancelAnimationFrame(sweepRAF); clearTimeout(stopTimer); $("#swFreq").hidden=true; $("#stopBtn").disabled=true; };
+  playMelody=async function(){
+    stopPlay(); const b=await renderOffline(22,(c,out)=>scheduleMelody(c,panned(c,out),0.05));
+    await nativePlay(b.getChannelData(0),b.getChannelData(1)); $("#stopBtn").disabled=false; stopTimer=setTimeout(stopPlay,22500);
+  };
+  playSweep=async function(){
+    stopPlay(); const T=20,f1=20,f2=200;
+    const b=await renderOffline(T+0.3,(c,out)=>{ const g0=panned(c,out), o=c.createOscillator(), g=c.createGain(), t0=0.05;
+      o.frequency.setValueAtTime(f1,t0); o.frequency.exponentialRampToValueAtTime(f2,t0+T);
+      g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.6,t0+0.3); g.gain.setValueAtTime(0.6,t0+T-0.3); g.gain.exponentialRampToValueAtTime(0.0001,t0+T);
+      o.connect(g); g.connect(g0); o.start(t0); o.stop(t0+T+0.05); });
+    await nativePlay(b.getChannelData(0),b.getChannelData(1)); $("#stopBtn").disabled=false;
+    const el=$("#swFreq"), st=performance.now(); el.hidden=false;
+    const tick=()=>{ const tt=Math.max(0,Math.min(T,(performance.now()-st)/1000)); el.textContent=Math.round(f1*Math.pow(f2/f1,tt/T))+" Гц"; if(tt<T) sweepRAF=requestAnimationFrame(tick); };
+    tick(); stopTimer=setTimeout(stopPlay,(T+0.5)*1000);
+  };
+  genStart=async function(){
+    stopPlay();
+    try{ await nat("tone",{on:true,freq:gf,vol:genVolume(),pan:parseFloat($("#genCh").value),wave:$("#genWave").value}); }catch(e){ return; }
+    genOn=true; $("#genBtn").textContent="Выключить тон";
+  };
+  genStop=function(){ if(genOn) nat("tone",{on:false}).catch(()=>{}); genOn=false; $("#genBtn").textContent="Включить тон"; };
+  const baseSetFreq=setFreq;
+  setFreq=function(f,fs){ baseSetFreq(f,fs); if(genOn) nat("tone",{freq:gf}).catch(()=>{}); };
+  $("#genVol").addEventListener("input",()=>{ if(genOn) nat("tone",{vol:genVolume()}).catch(()=>{}); });
+  $("#genCh").addEventListener("change",()=>{ if(genOn) nat("tone",{pan:parseFloat($("#genCh").value)}).catch(()=>{}); });
+  stopPreview=function(){ if(mPrev){ mPrev=null; nat("stop").catch(()=>{}); } $("#mPreview").textContent="Прослушать фрагмент"; };
+  previewMusic=async function(){
+    if(mPrev){ stopPreview(); return; } if(!mBuf) return; genStop(); stopPlay();
+    const {L,R}=segArrays(); await nativePlay(L,R); mPrev=true; $("#mPreview").textContent="Остановить";
+    setTimeout(()=>{ if(mPrev) stopPreview(); },(+$("#mLen").value)*1000+300);
+  };
+  // тексты раздела про маршрут звука — для приложения
+  $("#routeMode").innerHTML='<option value="a">Способ 1: запись и звук, режим измерения</option><option value="b">Способ 2: запись и звук, обычный режим</option><option value="c">Способ 3: несколько выходов сразу</option>';
+  const sm=$("#routeBox summary"); if(sm) sm.textContent="Звук идёт не туда?";
+  const hp=$("#routeBox p.hint"); if(hp) hp.textContent="В приложении режим звука выбирается самим приложением. Если писк всё равно идёт из телефона, выберите другой способ: приложение перезагрузит страницу, снова включите микрофон и проверьте писк.";
+}
+
+/* ---------- интерфейс ---------- */
+const MIC_BTNS=["#aRun","#rRun","#lrBtn","#subBtn","#oneBtn","#frBtn","#distBtn","#ratBtn","#wizStart","#spkStart","#mRun","#decayBtn","#delayBtn","#noiseBtn","#isoBtn","#mvBtn"];
+const CLEAR_BTNS=["#aClear","#subClear","#oneClear","#frClear","#noiseClear","#isoClear","#mvClear","#delayClear"];
+function lockButtons(on){
+  MIC_BTNS.forEach(id=>{ const el=$(id); if(el) el.disabled=on||!micStream||(id==="#mRun"&&!mBuf); });
+  CLEAR_BTNS.forEach(id=>{ const el=$(id); if(el) el.disabled=on; });
+}
+function showTab(id,scroll){
+  if(!document.querySelector('[data-pane="'+id+'"]')) id="lr";
+  document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab===id)));
+  document.querySelectorAll("[data-pane]").forEach(p=>p.hidden=p.dataset.pane!==id);
+  save("tab",id); if(id==="report") renderReport();
+  if(scroll){ const p=document.querySelector('[data-pane="'+id+'"]'); if(p) p.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}); }
+}
+document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab,true)));
+$("#micBtn").addEventListener("click",enableMic);
+$("#micOff").addEventListener("click",disableMic);
+$("#sinkSel").addEventListener("change",async()=>{ await routeTo($("#sinkSel").value); beep(); });
+$("#ansCar").addEventListener("click",()=>dlog("ОТВЕТ: писк из машины"));
+$("#ansPhone").addEventListener("click",()=>dlog("ОТВЕТ: писк из телефона"));
+$("#diagClear").addEventListener("click",()=>{ diag=[]; save("diag",diag); $("#diagLog").textContent=""; });
+$("#diagCopy").addEventListener("click",()=>{ const text=diag.join("\n"), b=$("#diagCopy"), ok=()=>{ b.textContent="Скопировано"; setTimeout(()=>b.textContent="Скопировать журнал",2000); };
+  const fb=()=>{ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); ok(); }catch(e){} ta.remove(); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok,fb); else fb(); });
+$("#routeFix").addEventListener("click",async()=>{
+  if(NATIVE){ dlog("кнопка «Вернуть звук на AUX» (приложение)"); if(micStream){ await disableMic(); await enableMic(); } beep(); return; }
+  const as=navigator.audioSession; dlog("кнопка «Вернуть звук на AUX»");
+  if(as){ try{ as.type=micStream?"auto":"playback"; await sleep(150); as.type=micStream?"play-and-record":"auto"; }catch(e){ dlog("ошибка: "+(e&&e.message)); } }
+  const c=await resume(); try{ if(c.state==="running"){ await c.suspend(); await sleep(100); await c.resume(); } }catch(e){}
+  dlog("переключение сделано"); beep(); });
+if(navigator.mediaDevices&&navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener("devicechange",()=>{ dlog("подключили или отключили устройство"); logDevices(); });
+document.addEventListener("visibilitychange",()=>dlog(document.hidden?"страница свёрнута":"страница снова открыта"));
+if(NATIVE) dlog("запущено в приложении для iPhone"); else dlog("выбор выхода звука в этом Safari: "+(sinkSupport()||"нет"));
+dlog("страница открыта: "+(navigator.userAgent.match(/OS [\d_]+/)||["?"])[0].replace(/_/g,".")+", способ "+load("route","a"));
+$("#diagLog").textContent=diag.join("\n");
+$("#beepBtn").addEventListener("click",beep);
+$("#routeMode").value=load("route","a");
+$("#routeMode").addEventListener("change",()=>{ save("route",$("#routeMode").value); location.reload(); });
+routeInfo();
+$("#lrBtn").addEventListener("click",runLR);
+$("#subBtn").addEventListener("click",runSub);
+$("#oneBtn").addEventListener("click",runOne);
+$("#subClear").addEventListener("click",()=>{ subMeas=[]; save("sub",subMeas); $("#subLabel").value="Фаза 0°"; renderSub(); });
+$("#oneClear").addEventListener("click",()=>{ oneRes=[]; save("one",oneRes); renderOne(); });
+$("#frBtn").addEventListener("click",runFR);
+$("#frClear").addEventListener("click",()=>{ curves=[]; save("curves",curves); $("#frLabel").value="Замер 1"; renderFR(); });
+$("#distBtn").addEventListener("click",runDist);
+$("#ratBtn").addEventListener("click",runRattle);
+$("#melBtn").addEventListener("click",()=>{ genStop(); playMelody(); });
+$("#genBtn").addEventListener("click",()=>{ genOn?genStop():genStart(); });
+$("#genSlider").addEventListener("input",e=>setFreq(sliderToF(+e.target.value),true));
+$("#genVol").addEventListener("input",()=>{ $("#genVolTxt").textContent=$("#genVol").value+"%"; if(genGain) genGain.gain.setTargetAtTime(Math.max(0.0001,genVolume()),getCtx().currentTime,0.02); });
+$("#genCh").addEventListener("change",()=>{ if(genPan) genPan.pan.value=parseFloat($("#genCh").value); });
+$("#genWave").addEventListener("change",()=>{ if(genOn){ genStop(); setTimeout(genStart,180); } });
+document.querySelectorAll("[data-df]").forEach(b=>{
+  let t1=0,t2=0; const step=()=>setFreq(gf+parseFloat(b.dataset.df));
+  const end=()=>{ clearTimeout(t1); clearInterval(t2); };
+  b.addEventListener("pointerdown",e=>{ e.preventDefault(); step(); t1=setTimeout(()=>{ t2=setInterval(step,70); },400); });
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,end));
+  b.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); step(); } });
+  b.addEventListener("contextmenu",e=>e.preventDefault());
+});
+$("#genChips").innerHTML=[25,30,35,40,45,50,63,80,100,1000].map(f=>'<button class="mini" data-gf="'+f+'">'+fmtF(f)+'</button>').join("");
+$("#genChips").querySelectorAll("[data-gf]").forEach(b=>b.addEventListener("click",()=>setFreq(+b.dataset.gf)));
+setFreq(50);
+$("#swBtn").addEventListener("click",()=>{ genStop(); playSweep(); });
+$("#stopBtn").addEventListener("click",stopPlay);
+const lab={L:"Левая",R:"Правая",B:"Пара"}, drvLab={midbass:"дверь",mid:"середина",tw:"пищалка",sub:"саб"};
+function autoLabel(){ const ch=$("#ch").value, d=$("#drv").value; $("#oneLabel").value=d==="sub"?"Сабвуфер":lab[ch]+" "+drvLab[d]; }
+$("#ch").addEventListener("change",autoLabel); $("#drv").addEventListener("change",autoLabel);
+$("#wizGenre").innerHTML=GENRES.map(g=>'<option value="'+g.id+'">'+g.name+'</option>').join("");
+const savedGenre=load("genre",null); if(savedGenre) $("#wizGenre").value=savedGenre;
+$("#wizGenre").addEventListener("change",()=>{ save("genre",$("#wizGenre").value); renderWizResult(); });
+$("#wizStart").addEventListener("click",wizStart);
+if(wiz&&wiz.cfg){ document.querySelectorAll(".wizCtl").forEach(e=>e.checked=wiz.cfg.ctrls.includes(e.value)); $("#wizMax").value=String(wiz.cfg.max); }
+renderWizResult();
+renderSub(); renderOne(); renderFR(); if(curves.length) $("#frLabel").value="Замер "+(curves.length+1);
+initNew();
+showTab(load("tab","lr"));
+})();
+</script>
+</body>
+</html>
